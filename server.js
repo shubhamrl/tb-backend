@@ -41,7 +41,7 @@ app.use(cors({
   origin: process.env.ALLOWED_ORIGINS.split(','), // React Dev Server
   credentials: true
 }));
-app.use(rateLimit({ windowMs: 60 * 1000, max: 100 }));
+// app.use(rateLimit({ windowMs: 60 * 1000, max: 100 }));
 
 // Mount routes
 app.use('/api/auth',       signupRoute);
