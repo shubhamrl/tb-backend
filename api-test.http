@@ -1,0 +1,100 @@
+### Register User
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### Login User
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+
+### Get Current Round (example)
+GET http://localhost:5000/api/bets/current-round
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM1M2UxMzlmNDIxNzdiM2E3YzAzOWYiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NDgzMTk4MDEsImV4cCI6MTc0ODkyNDYwMX0.cWTA58P3dyK_VDg3DJ2YBtR6NRZdIX9yom9wahaJ3HA
+
+
+### Get Current Round
+GET http://localhost:5000/api/bets/current-round
+
+### Place Bet
+POST http://localhost:5000/api/bets/place-bet
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM1M2UxMzlmNDIxNzdiM2E3YzAzOWYiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NDgzMjA1NTAsImV4cCI6MTc0ODkyNTM1MH0.0NR_bfkBdZfvn04-kFhfmUBjKprid7EHUiRouFMxG7Y
+Content-Type: application/json
+
+{
+  "choice": "cow",
+  "amount": 500
+}
+
+### Set Manual Winner
+POST http://localhost:5000/api/bets/set-winner
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM1M2UxMzlmNDIxNzdiM2E3YzAzOWYiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NDgzMjA1NTAsImV4cCI6MTc0ODkyNTM1MH0.0NR_bfkBdZfvn04-kFhfmUBjKprid7EHUiRouFMxG7Y
+Content-Type: application/json
+
+{
+  "choice": "umbrella"
+}
+
+
+### Request Deposit
+POST http://localhost:5000/api/deposits
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM1M2UxMzlmNDIxNzdiM2E3YzAzOWYiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NDgzMjEwMDgsImV4cCI6MTc0ODkyNTgwOH0.DgCZk8TYOzzV19-SuAi9aNnmNM077CRIn11mrsR5plM
+Content-Type: application/json
+
+{
+  "amount": 500
+}
+
+### List Deposits (admin)
+GET http://localhost:5000/api/deposits
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM1M2UxMzlmNDIxNzdiM2E3YzAzOWYiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NDgzMjEwMDgsImV4cCI6MTc0ODkyNTgwOH0.DgCZk8TYOzzV19-SuAi9aNnmNM077CRIn11mrsR5plM
+
+### Update Deposit Status
+PATCH http://localhost:5000/api/deposits/{{"68353e139f42177b3a7c039f"}}
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM1M2UxMzlmNDIxNzdiM2E3YzAzOWYiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NDgzMjEwMDgsImV4cCI6MTc0ODkyNTgwOH0.DgCZk8TYOzzV19-SuAi9aNnmNM077CRIn11mrsR5plM
+Content-Type: application/json
+
+{
+  "status": "approved"
+}
+
+### Request Withdrawal
+POST http://localhost:5000/api/withdrawals
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM1M2UxMzlmNDIxNzdiM2E3YzAzOWYiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NDgzMjEwMDgsImV4cCI6MTc0ODkyNTgwOH0.DgCZk8TYOzzV19-SuAi9aNnmNM077CRIn11mrsR5plM
+Content-Type: application/json
+
+{
+  "amount": 200
+}
+
+### List Withdrawals (admin)
+GET http://localhost:5000/api/withdrawals
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM1M2UxMzlmNDIxNzdiM2E3YzAzOWYiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NDgzMjEwMDgsImV4cCI6MTc0ODkyNTgwOH0.DgCZk8TYOzzV19-SuAi9aNnmNM077CRIn11mrsR5plM
+
+### Update Withdrawal Status
+PATCH http://localhost:5000/api/withdrawals/{{WITHDRAWAL_ID}}
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM1M2UxMzlmNDIxNzdiM2E3YzAzOWYiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NDgzMjEwMDgsImV4cCI6MTc0ODkyNTgwOH0.DgCZk8TYOzzV19-SuAi9aNnmNM077CRIn11mrsR5plM
+Content-Type: application/json
+
+{
+  "status": "approved"
+}
+
+
+### Update Deposit Status
+PATCH http://localhost:5000/api/deposits/683544ea73ad254148ead412
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2ODM1M2UxMzlmNDIxNzdiM2E3YzAzOWYiLCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJpYXQiOjE3NDgzMjEwMDgsImV4cCI6MTc0ODkyNTgwOH0.DgCZk8TYOzzV19-SuAi9aNnmNM077CRIn11mrsR5plM
+Content-Type: application/json
+
+{
+  "status": "approved"
+}
