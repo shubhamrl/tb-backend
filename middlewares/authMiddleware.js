@@ -9,7 +9,7 @@ module.exports = (req, res, next) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('🔐 Decoded payload:', decoded);
+    
 
     // payload में id या _id चेक करें
     const userId = decoded.id || decoded._id || decoded.userId;
