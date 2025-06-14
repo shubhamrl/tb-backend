@@ -104,53 +104,52 @@ exports.distributePayouts = async (req, res) => {
       return res.status(400).json({ message: 'Invalid round' });
     }
 
-    // Try to find winner (manual)
+    // Check if winner already set manually
     let winDoc = await Winner.findOne({ round });
     let choice;
 
     if (!winDoc) {
-      // No manual winner set, auto logic
-
-      // 1. Get all bets for the round
+      // ✅ No manual winner → Auto winner logic starts
       const bets = await Bet.find({ round });
+
       if (!bets.length) {
-        // No bets at all: Pick random winner from all images
+        // ❌ No bets at all → pick random image
         const IMAGE_LIST = [
           'umbrella', 'football', 'sun', 'diya', 'cow', 'bucket',
           'kite', 'spinningTop', 'rose', 'butterfly', 'pigeon', 'rabbit'
         ];
         choice = IMAGE_LIST[Math.floor(Math.random() * IMAGE_LIST.length)];
       } else {
-        // Bets are present: Find choices with lowest total bet
+        // ✅ Bets present → lowest total bet wins
         const totals = {};
         bets.forEach(b => {
           totals[b.choice] = (totals[b.choice] || 0) + b.amount;
         });
-        // Find minimum
+
         let minAmount = Math.min(...Object.values(totals));
-        // Find all choices with this min amount
-        let lowestChoices = Object.entries(totals)
+
+        const lowestChoices = Object.entries(totals)
           .filter(([_, amt]) => amt === minAmount)
           .map(([name]) => name);
-        // Randomly select among lowest (in case of tie)
+
         choice = lowestChoices[Math.floor(Math.random() * lowestChoices.length)];
       }
 
-      // Save this auto-decided winner
+      // ✅ Save this auto-decided winner
       winDoc = await Winner.findOneAndUpdate(
         { round },
         { choice, createdAt: new Date() },
         { upsert: true, new: true }
       );
     } else {
-      // Manual winner already set by admin
+      // ✅ Manual winner already set
       choice = winDoc.choice;
     }
 
-    // Winner-announced emit ONLY here (so user sees winner at timer 0)
+    // ✅ Emit winner to all clients
     global.io.emit('winner-announced', { round, choice });
 
-    // Find all winning bets for that round and distribute 10× payout
+    // ✅ Payout to winning users
     const winningBets = await Bet.find({ round, choice });
     for (const wb of winningBets) {
       const user = await User.findById(wb.user);
@@ -160,10 +159,12 @@ exports.distributePayouts = async (req, res) => {
       }
     }
 
-    // Notify all clients that payouts have been distributed
+    // ✅ Notify all clients that payouts done
     global.io.emit('payouts-distributed', { round, choice });
+
     return res.json({ message: 'Payouts distributed', round, choice });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
