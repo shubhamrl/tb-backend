@@ -6,7 +6,11 @@ const auth = require('../middlewares/authMiddleware'); // agar auth lagana hai
 // Get current settings
 router.get('/', async (req, res) => {
   const setting = await Setting.findOne();
-  res.json(setting || {});
+
+  res.json({
+    depositWhatsapp: setting?.depositWhatsapp || '',
+    withdrawWhatsapp: setting?.withdrawWhatsapp || ''
+  });
 });
 
 // Update settings (admin only)
