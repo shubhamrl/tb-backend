@@ -7,7 +7,6 @@ exports.getCurrentRound = async (req, res) => {
   try {
     let round = Number(req.query.round);
     if (!round) {
-      // fallback: calculate based on time
       const now = new Date();
       const IST_OFFSET = 5.5 * 60 * 60 * 1000;
       const nowIST = new Date(now.getTime() + IST_OFFSET);
@@ -16,19 +15,26 @@ exports.getCurrentRound = async (req, res) => {
       round = Math.min(Math.floor(secondsPassed / 90) + 1, 960);
     }
 
-    // Fetch all bets for this round
+    const userId = req.user.id || req.user._id;
+
     const bets = await Bet.find({ round });
-    // Compute totals per choice
+
     const totals = bets.reduce((acc, b) => {
       acc[b.choice] = (acc[b.choice] || 0) + b.amount;
       return acc;
     }, {});
 
-    // Also look up if a Winner document already exists for this round
+    const userBets = bets.reduce((acc, b) => {
+      if (String(b.user) === String(userId)) {
+        acc[b.choice] = (acc[b.choice] || 0) + b.amount;
+      }
+      return acc;
+    }, {});
+
     const winDoc = await Winner.findOne({ round });
     const winnerChoice = winDoc ? winDoc.choice : null;
 
-    return res.json({ round, bets, totals, winnerChoice });
+    return res.json({ round, totals, userBets, winnerChoice });
   } catch (err) {
     console.error('getCurrentRound error:', err);
     return res.status(500).json({ message: 'Server error' });
