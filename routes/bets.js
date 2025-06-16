@@ -10,7 +10,7 @@ const {
 
 router.get('/current-round', getCurrentRound);
 
-// --- Combined API (no auth needed for admin panel, user ke liye lagana ho to laga sakte ho)
+// --- Combined API
 router.get('/live-state', auth, async (req, res) => {
   try {
     // Time calculations
@@ -31,20 +31,33 @@ router.get('/live-state', auth, async (req, res) => {
     const currentRoundEnd = currentRoundStart + (90 * 1000);
     const timer = Math.max(0, Math.floor((currentRoundEnd - nowIST.getTime()) / 1000));
 
-    // ⬇️ Get all bets for this round and calculate totals
+    // ⬇️ Get all bets for this round
     const Bet = require('../models/Bet');
     const bets = await Bet.find({ round });
+
+    // 🔵 Total bets for admin
     const totals = bets.reduce((acc, b) => {
       acc[b.choice] = (acc[b.choice] || 0) + b.amount;
       return acc;
     }, {});
+
+    // 🔵 User-specific bets
+    const userBets = {};
+    if (req.user) {
+      const userId = req.user.id;
+      bets.forEach(b => {
+        if (b.user.toString() === userId) {
+          userBets[b.choice] = (userBets[b.choice] || 0) + b.amount;
+        }
+      });
+    }
 
     // Winner for current round
     const Winner = require('../models/Winner');
     const winDoc = await Winner.findOne({ round });
     const winnerChoice = winDoc ? winDoc.choice : null;
 
-    // User balance (if user authenticated)
+    // User balance
     let balance = null;
     try {
       if (req.user) {
@@ -58,14 +71,16 @@ router.get('/live-state', auth, async (req, res) => {
       round,
       timer,
       totals,
+      userBets,        // ✅ sent to frontend
       winnerChoice,
       balance,
     });
+
   } catch (e) {
+    console.error('Error in /live-state:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 
 router.post('/place-bet', auth, placeBet);
 router.post('/set-winner', auth, setManualWinner);
