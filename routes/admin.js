@@ -19,8 +19,18 @@ router.get('/users', async (req, res) => {
       filter.$or = orFilters;
     }
 
+    // List of users for table
     const users = await User.find(filter).select('-password');
-    return res.json({ users });
+
+    // Total users (ignoring search)
+    const total = await User.countDocuments();
+
+    // Active users: last 10 minutes me jis user ka lastActive field update hua
+    // NOTE: 'lastActive' field User schema me hona chahiye! Nahi hai to add karo.
+    const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000);
+    const active = await User.countDocuments({ lastActive: { $gte: tenMinsAgo } });
+
+    return res.json({ users, total, active });
   } catch (err) {
     console.error('Error fetching users:', err);
     return res.status(500).json({ message: 'Server error' });
