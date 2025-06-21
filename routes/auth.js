@@ -32,13 +32,19 @@ router.post('/signup', async (req, res) => {
     await user.save();
 
     // Send OTP email
-    await transporter.sendMail({
-      from: '"Titali Bhavara" <shubhamlasankar10@gmail.com>',
-      to: email,
-      subject: 'Verify Your Email',
-      text: `Your OTP is: ${otp}`,
-      html: `<h2>Your OTP is: <b>${otp}</b></h2>`
-    });
+   await transporter.sendMail({
+  from: '"Titali Bhavara" <shubhamlasankar10@gmail.com>',
+  to: email,
+  subject: 'Verify Your Email',
+  text: `Your OTP is: ${otp}`,
+  html: `<h2>Your OTP is: <b>${otp}</b></h2>`
+}, (err, info) => {
+  if (err) {
+    console.error('Email send error:', err); // Yahi print ho logs me
+  } else {
+    console.log('Email sent:', info.response); // Yahi print ho logs me
+  }
+});
 
     res.status(201).json({ message: 'Signup successful. OTP sent to email.' });
   } catch (err) {
