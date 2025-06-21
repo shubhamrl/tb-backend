@@ -1,3 +1,4 @@
+// server/models/User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
@@ -16,6 +17,14 @@ const userSchema = new mongoose.Schema({
   balance: {
     type: Number,
     default: 0
+  },
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
+  otp: {
+    type: String,
+    default: null
   },
   createdAt: {
     type: Date,
