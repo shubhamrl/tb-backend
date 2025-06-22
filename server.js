@@ -44,8 +44,8 @@ app.use(cors({
 // app.use(rateLimit({ windowMs: 60 * 1000, max: 100 }));
 
 // Mount routes
-app.use('/api/auth',       signupRoute);
-app.use('/api/auth',       loginRoute);
+// app.use('/api/auth',       signupRoute);
+// app.use('/api/auth',       loginRoute);
 app.use('/api/auth',       authRoutes);
 app.use('/api/users',      userRoutes);
 app.use('/api/bets',       betsRoutes);
