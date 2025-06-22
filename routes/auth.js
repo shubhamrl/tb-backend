@@ -1,4 +1,5 @@
 // server/routes/auth.js
+console.log('========= AUTH.JS IS LOADED =========');
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
@@ -17,6 +18,7 @@ const transporter = nodemailer.createTransport({
 
 // 1. SIGNUP with OTP email send
 router.post('/signup', async (req, res) => {
+    console.log('======== SIGNUP ENDPOINT HIT ========');
   try {
     const { email, password } = req.body;
 
