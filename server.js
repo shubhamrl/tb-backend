@@ -10,8 +10,8 @@ const { Server } = require('socket.io');
 
 // Import all routes
 const adminRoutes      = require('./routes/admin');
-const signupRoute      = require('./routes/signup');
-const loginRoute       = require('./routes/login');
+// const signupRoute      = require('./routes/signup');
+// const loginRoute       = require('./routes/login');
 const authRoutes       = require('./routes/auth');
 const userRoutes       = require('./routes/users');
 const betsRoutes       = require('./routes/bets');
