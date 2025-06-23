@@ -18,6 +18,7 @@ const betsRoutes       = require('./routes/bets');
 const depositRoutes    = require('./routes/depositRoutes');
 const withdrawalRoutes = require('./routes/withdrawalRoutes');
 const settingsRoutes = require('./routes/settings');
+const spinRoutes = require('./routes/spin');
 
 const app = express();
 const server = http.createServer(app);
@@ -53,6 +54,7 @@ app.use('/api/deposits',   depositRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
 app.use('/api/admin',      adminRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/spin', spinRoutes);
 
 // Connect to MongoDB
 mongoose
