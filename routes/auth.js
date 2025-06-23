@@ -88,6 +88,10 @@ router.post('/login', async (req, res) => {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
+    // ✅ lastActive update karo!
+    user.lastActive = new Date();
+    await user.save();
+
     // Yahan JWT token generate karo
     const token = jwt.sign(
       { id: user._id, email: user.email, role: user.role || 'user' },
