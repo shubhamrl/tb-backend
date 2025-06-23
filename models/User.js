@@ -1,4 +1,3 @@
-// server/models/User.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
@@ -35,7 +34,7 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  lastActive: { // NEW FIELD!
+  lastActive: {          // ✅ Ye line add hai!
     type: Date,
     default: Date.now
   }
