@@ -34,6 +34,10 @@ const userSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  lastActive: { // NEW FIELD!
+    type: Date,
+    default: Date.now
   }
 });
 
