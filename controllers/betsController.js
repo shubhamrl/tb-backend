@@ -61,6 +61,7 @@ exports.placeBet = async (req, res) => {
 
     // Deduct balance and save bet
     user.balance -= amount;
+    user.lastActive = new Date(); // ✅ yahan bhi lastActive update
     await user.save();
 
     const bet = new Bet({ user: userId, round, choice, amount });
@@ -167,4 +168,3 @@ exports.distributePayouts = async (req, res) => {
     return res.status(500).json({ message: 'Server error' });
   }
 };
-
