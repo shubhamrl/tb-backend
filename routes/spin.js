@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const spinController = require('../controllers/spinController');
-const authMiddleware = require('../authMiddleware');
+const auth = require('../middlewares/authMiddleware');
 
 // Bet place
 router.post('/bet', authMiddleware, spinController.placeBet);
