@@ -148,3 +148,74 @@ exports.getLast10Wins = async (req, res) => {
     return res.status(500).json({ error: 'Failed to fetch last wins' });
   }
 };
+
+/*
+  NEW: Get Bet Totals By Number for Manual Winner Page
+  Route: /api/spin/bets/summary/:round
+  Response: { round, totals: [amtOn0, amtOn1, ... amtOn9] }
+*/
+exports.getBetTotalsByNumber = async (req, res) => {
+  try {
+    const round = Number(req.params.round);
+    const bets = await SpinBet.find({ round });
+    let totals = Array(10).fill(0);
+    bets.forEach(bet => { totals[bet.choice] += bet.amount; });
+
+    return res.json({ round, totals });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to get bet totals' });
+  }
+};
+
+/*
+  NEW: Get Round Summary for summary page
+  Route: /api/spin/summary/:round
+  Response: { round, totalBet, winner, totalPayout }
+*/
+exports.getRoundSummary = async (req, res) => {
+  try {
+    const round = Number(req.params.round);
+    const bets = await SpinBet.find({ round });
+    if (!bets.length) {
+      return res.json({
+        round,
+        totalBet: 0,
+        winner: null,
+        totalPayout: 0
+      });
+    }
+
+    const totalBet = bets.reduce((a, b) => a + b.amount, 0);
+
+    // Winner (manual ya auto, jaise pehle)
+    let winner = null;
+    if (roundInfo.manualWinner && roundInfo.manualWinner.round === round) {
+      winner = roundInfo.manualWinner.winner;
+    } else {
+      let totals = Array(10).fill(0);
+      bets.forEach(bet => { totals[bet.choice] += bet.amount; });
+      let min = Math.min(...totals.filter(x => x > 0));
+      let candidates = [];
+      totals.forEach((sum, idx) => {
+        if (sum === min) candidates.push(idx);
+      });
+      if (!min || !candidates.length) {
+        winner = Math.floor(Math.random() * 10);
+      } else {
+        winner = candidates[Math.floor(Math.random() * candidates.length)];
+      }
+    }
+
+    // Total payout (winner par jitne bet the unka *10)
+    const totalPayout = bets.filter(b => b.choice === winner).reduce((a, b) => a + (b.amount * 10), 0);
+
+    return res.json({
+      round,
+      totalBet,
+      winner,
+      totalPayout
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to fetch round summary' });
+  }
+};
