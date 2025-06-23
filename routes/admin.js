@@ -60,7 +60,7 @@ router.put('/users/:id/balance', async (req, res) => {
 // GET /api/admin/today-rounds-summary
 router.get('/today-rounds-summary', async (req, res) => {
   try {
-    // Use EXACT same logic as /bets/live-state
+    // --- Same current round logic (as before) ---
     const now = new Date();
     const IST_OFFSET = 5.5 * 60 * 60 * 1000;
     const nowIST = new Date(now.getTime() + IST_OFFSET);
@@ -82,8 +82,8 @@ router.get('/today-rounds-summary', async (req, res) => {
     // Group bets by round
     const betsByRound = {};
     bets.forEach(bet => {
-      if (!betsByRound[bet.round]) betsByRound[bet.round] = 0;
-      betsByRound[bet.round] += bet.amount;
+      if (!betsByRound[bet.round]) betsByRound[bet.round] = [];
+      betsByRound[bet.round].push(bet);
     });
 
     // Find all winners for today
@@ -91,20 +91,28 @@ router.get('/today-rounds-summary', async (req, res) => {
     const winners = await Winner.find({ round: { $gte: 1, $lte: currentRoundNumber } });
     const winnersByRound = {};
     winners.forEach(win => {
-      winnersByRound[win.round] = {
-        winner: win.choice,
-        totalPayout: win.totalPayout || 0
-      };
+      winnersByRound[win.round] = win.choice;
     });
 
     // Prepare output for all rounds, even if bet/payout is zero
     const rounds = [];
     for (let r = 1; r <= currentRoundNumber; r++) {
+      const winner = winnersByRound[r] || '-';
+      let totalPayout = 0;
+      if (winner !== '-') {
+        // All winning bets for this round
+        const winnerBets = (betsByRound[r] || []).filter(b => b.choice === winner);
+        totalPayout = winnerBets.reduce((acc, b) => acc + (b.amount * 10), 0);
+      }
+
+      // Total bet for the round
+      const totalBet = (betsByRound[r] || []).reduce((acc, b) => acc + b.amount, 0);
+
       rounds.push({
         round: r,
-        totalBet: betsByRound[r] || 0,
-        winner: winnersByRound[r]?.winner || '-',
-        totalPayout: winnersByRound[r]?.totalPayout || 0
+        totalBet,
+        winner,
+        totalPayout
       });
     }
 
