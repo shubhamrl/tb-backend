@@ -53,4 +53,56 @@ router.put('/users/:id/balance', async (req, res) => {
   }
 });
 
+// GET /api/admin/today-rounds-summary
+router.get('/today-rounds-summary', async (req, res) => {
+  try {
+    // Today ka midnight (00:00:00) se abhi tak
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+
+    // 1. Get all bets of today
+    const bets = await Bet.find({
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
+
+    // 2. Group by round number (har round ka total bet)
+    const rounds = {};
+    bets.forEach(bet => {
+      const rnd = bet.round;
+      if (!rounds[rnd]) {
+        rounds[rnd] = { round: rnd, totalBet: 0 };
+      }
+      rounds[rnd].totalBet += bet.amount;
+    });
+
+    // 3. Find winners for these rounds
+    const roundNumbers = Object.keys(rounds).map(Number);
+    const winners = await Winner.find({ round: { $in: roundNumbers } });
+
+    winners.forEach(win => {
+      if (rounds[win.round]) {
+        rounds[win.round].winner = win.choice;
+        rounds[win.round].totalPayout = win.totalPayout || 0;
+      }
+    });
+
+    // 4. Output as array, latest round first
+    const output = Object.values(rounds)
+      .map(r => ({
+        round: r.round,
+        totalBet: r.totalBet,
+        winner: r.winner || '-',
+        totalPayout: r.totalPayout || 0
+      }))
+      .sort((a, b) => b.round - a.round);
+
+    res.json({ rounds: output });
+  } catch (err) {
+    console.error('Today rounds summary error:', err);
+    res.status(500).json({ message: 'Could not fetch summary' });
+  }
+});
+
+
 module.exports = router;
