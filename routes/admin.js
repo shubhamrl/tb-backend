@@ -3,6 +3,8 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Bet = require('../models/Bet');
+const Winner = require('../models/Winner');
 
 // GET /api/admin/users?search=term
 router.get('/users', async (req, res) => {
@@ -56,53 +58,53 @@ router.put('/users/:id/balance', async (req, res) => {
 // GET /api/admin/today-rounds-summary
 router.get('/today-rounds-summary', async (req, res) => {
   try {
-    // Today ka midnight (00:00:00) se abhi tak
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
+    const now = new Date();
+    const elapsedSeconds = Math.floor((now - startOfDay) / 1000);
+    const roundInterval = 90;
+    const currentRoundNumber = Math.ceil(elapsedSeconds / roundInterval);
 
-    // 1. Get all bets of today
+    // All today's bets
     const bets = await Bet.find({
-      createdAt: { $gte: startOfDay, $lte: endOfDay }
+      createdAt: { $gte: startOfDay, $lte: now }
     });
 
-    // 2. Group by round number (har round ka total bet)
-    const rounds = {};
+    // Group bets by round
+    const betsByRound = {};
     bets.forEach(bet => {
-      const rnd = bet.round;
-      if (!rounds[rnd]) {
-        rounds[rnd] = { round: rnd, totalBet: 0 };
-      }
-      rounds[rnd].totalBet += bet.amount;
+      if (!betsByRound[bet.round]) betsByRound[bet.round] = 0;
+      betsByRound[bet.round] += bet.amount;
     });
 
-    // 3. Find winners for these rounds
-    const roundNumbers = Object.keys(rounds).map(Number);
-    const winners = await Winner.find({ round: { $in: roundNumbers } });
-
+    // Find all winners for today
+    const winners = await Winner.find({ round: { $gte: 1, $lte: currentRoundNumber } });
+    const winnersByRound = {};
     winners.forEach(win => {
-      if (rounds[win.round]) {
-        rounds[win.round].winner = win.choice;
-        rounds[win.round].totalPayout = win.totalPayout || 0;
-      }
+      winnersByRound[win.round] = {
+        winner: win.choice,
+        totalPayout: win.totalPayout || 0
+      };
     });
 
-    // 4. Output as array, latest round first
-    const output = Object.values(rounds)
-      .map(r => ({
-        round: r.round,
-        totalBet: r.totalBet,
-        winner: r.winner || '-',
-        totalPayout: r.totalPayout || 0
-      }))
-      .sort((a, b) => b.round - a.round);
+    // Prepare output for all rounds, even if bet/payout is zero
+    const rounds = [];
+    for (let r = 1; r <= currentRoundNumber; r++) {
+      rounds.push({
+        round: r,
+        totalBet: betsByRound[r] || 0,
+        winner: winnersByRound[r]?.winner || '-',
+        totalPayout: winnersByRound[r]?.totalPayout || 0
+      });
+    }
 
-    res.json({ rounds: output });
+    rounds.reverse(); // latest round on top
+
+    res.json({ rounds });
   } catch (err) {
     console.error('Today rounds summary error:', err);
     res.status(500).json({ message: 'Could not fetch summary' });
   }
 });
-
 
 module.exports = router;
