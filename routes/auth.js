@@ -1,4 +1,3 @@
-// server/routes/auth.js
 console.log('========= AUTH.JS IS LOADED =========');
 const express = require('express');
 const router = express.Router();
@@ -6,19 +5,18 @@ const User = require('../models/User');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 
-
 // Nodemailer config (Gmail App Password required!)
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER,   // ✔️ .env variable
-    pass: process.env.EMAIL_PASS,   // ✔️ .env variable
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   }
 });
 
 // 1. SIGNUP with OTP email send
 router.post('/signup', async (req, res) => {
-    console.log('======== SIGNUP ENDPOINT HIT ========');
+  console.log('======== SIGNUP ENDPOINT HIT ========');
   try {
     const { email, password } = req.body;
 
@@ -34,18 +32,18 @@ router.post('/signup', async (req, res) => {
     await user.save();
 
     // Send OTP email
-   try {
-  const info = await transporter.sendMail({
-    from: '"Titali Bhavara" <shubhamlasankar10@gmail.com>',
-    to: email,
-    subject: 'Verify Your Email',
-    text: `Your OTP is: ${otp}`,
-    html: `<h2>Your OTP is: <b>${otp}</b></h2>`
-  });
-  console.log('Email sent:', info.response);
-} catch (err) {
-  console.error('Email send error:', err);
-}
+    try {
+      const info = await transporter.sendMail({
+        from: '"Titali Bhavara" <shubhamlasankar10@gmail.com>',
+        to: email,
+        subject: 'Verify Your Email',
+        text: `Your OTP is: ${otp}`,
+        html: `<h2>Your OTP is: <b>${otp}</b></h2>`
+      });
+      console.log('Email sent:', info.response);
+    } catch (err) {
+      console.error('Email send error:', err);
+    }
 
     res.status(201).json({ message: 'Signup successful. OTP sent to email.' });
   } catch (err) {
