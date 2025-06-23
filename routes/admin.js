@@ -55,19 +55,28 @@ router.put('/users/:id/balance', async (req, res) => {
   }
 });
 
+
+
 // GET /api/admin/today-rounds-summary
 router.get('/today-rounds-summary', async (req, res) => {
   try {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    // Use EXACT same logic as /bets/live-state
     const now = new Date();
-    const elapsedSeconds = Math.floor((now - startOfDay) / 1000);
-    const roundInterval = 90;
-    const currentRoundNumber = Math.ceil(elapsedSeconds / roundInterval);
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    const nowIST = new Date(now.getTime() + IST_OFFSET);
+    const startOfDay = new Date(
+      nowIST.getFullYear(),
+      nowIST.getMonth(),
+      nowIST.getDate(),
+      0, 0, 0
+    );
+    const secondsPassed = Math.floor((nowIST - startOfDay) / 1000);
+    const currentRoundNumber = Math.min(Math.floor(secondsPassed / 90) + 1, 960);
 
     // All today's bets
+    const Bet = require('../models/Bet');
     const bets = await Bet.find({
-      createdAt: { $gte: startOfDay, $lte: now }
+      createdAt: { $gte: startOfDay, $lte: nowIST }
     });
 
     // Group bets by round
@@ -78,6 +87,7 @@ router.get('/today-rounds-summary', async (req, res) => {
     });
 
     // Find all winners for today
+    const Winner = require('../models/Winner');
     const winners = await Winner.find({ round: { $gte: 1, $lte: currentRoundNumber } });
     const winnersByRound = {};
     winners.forEach(win => {
