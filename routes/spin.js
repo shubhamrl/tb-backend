@@ -1,7 +1,8 @@
+// routes/spin.js
 const express = require('express');
 const router = express.Router();
 const spinController = require('../controllers/spinController');
-const authMiddleware = require('../middlewares/authMiddleware'); // <<-- yahi name rakho
+const authMiddleware = require('../middlewares/authMiddleware');
 
 // Bet place
 router.post('/bet', authMiddleware, spinController.placeBet);
@@ -21,10 +22,10 @@ router.get('/winner/:round', authMiddleware, spinController.getWinner);
 // Get last 10 wins
 router.get('/last-wins', authMiddleware, spinController.getLast10Wins);
 
-// NEW: Get total bets on each number for manual winner page
+// Get total bets on each number for manual winner page
 router.get('/bets/summary/:round', authMiddleware, spinController.getBetTotalsByNumber);
 
-// NEW: Get round summary (totalBet, winner, payout) for summary page
+// Get round summary (totalBet, winner, payout) for summary page
 router.get('/summary/:round', authMiddleware, spinController.getRoundSummary);
 
 module.exports = router;
