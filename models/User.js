@@ -34,10 +34,39 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  lastActive: {          // ✅ Ye line add hai!
+  lastActive: {
     type: Date,
     default: Date.now
-  }
+  },
+
+  // ------------- Referral System fields -------------
+  referrerId: {  // Kisne refer kiya (parent)
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  referralRewarded: { // Reward diya gaya ya nahi (pehli deposit pe)
+    type: Boolean,
+    default: false
+  },
+  referralRewardedAt: { // Kab reward mila (for history)
+    type: Date,
+    default: null
+  },
+  referralEarnings: { // Total referral se kamai
+    type: Number,
+    default: 0
+  },
+  referralHistory: [
+    {
+      referredUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      amount: Number,
+      date: { type: Date, default: Date.now },
+      note: String, // "Rewarded for first deposit" etc.
+    }
+  ],
+  // ---------------------------------------------------
+
 });
 
 // Password hash middleware
