@@ -39,6 +39,17 @@ const userSchema = new mongoose.Schema({
     default: Date.now
   },
 
+  // ===== Forgot password fields (start) =====
+  resetPasswordToken: {
+    type: String,
+    default: null
+  },
+  resetPasswordExpires: {
+    type: Date,
+    default: null
+  },
+  // ===== Forgot password fields (end) =====
+
   // ===== Referral System fields (start) =====
   referrerId: { // Kisne refer kiya (parent)
     type: mongoose.Schema.Types.ObjectId,
