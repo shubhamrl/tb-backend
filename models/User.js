@@ -39,21 +39,21 @@ const userSchema = new mongoose.Schema({
     default: Date.now
   },
 
-  // ------------- Referral System fields -------------
-  referrerId: {  // Kisne refer kiya (parent)
+  // ===== Referral System fields (start) =====
+  referrerId: { // Kisne refer kiya (parent)
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     default: null
   },
-  referralRewarded: { // Reward diya gaya ya nahi (pehli deposit pe)
+  referralRewarded: { // Pehli deposit par reward diya gaya ya nahi
     type: Boolean,
     default: false
   },
-  referralRewardedAt: { // Kab reward mila (for history)
+  referralRewardedAt: { // Kab reward mila (for admin/history)
     type: Date,
     default: null
   },
-  referralEarnings: { // Total referral se kamai
+  referralEarnings: { // Total referral se kamai (referrer ke liye)
     type: Number,
     default: 0
   },
@@ -62,11 +62,10 @@ const userSchema = new mongoose.Schema({
       referredUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       amount: Number,
       date: { type: Date, default: Date.now },
-      note: String, // "Rewarded for first deposit" etc.
+      note: String // "Rewarded for first deposit"
     }
-  ],
-  // ---------------------------------------------------
-
+  ]
+  // ===== Referral System fields (end) =====
 });
 
 // Password hash middleware
