@@ -3,26 +3,27 @@ const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
-//...register & login code (same as before)
+// Register, login, verify OTP (as you already have them)...
 
-// Forgot Password Controller
+// ========== Forgot Password Controller ==========
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
     user.resetPasswordToken = resetToken;
     user.resetPasswordExpires = Date.now() + 3600000; // 1hr
     await user.save();
 
-    // Nodemailer Setup (use your credentials)
+    // Nodemailer Setup (env vars required!)
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: 'your_gmail@gmail.com',
-        pass: 'your_gmail_password_or_app_password'
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
       }
     });
 
@@ -31,6 +32,7 @@ exports.forgotPassword = async (req, res) => {
       to: user.email,
       subject: 'Password Reset',
       text: `Click the following link to reset your password: ${resetLink}`,
+      html: `<p>Click the following link to reset your password:</p><a href="${resetLink}">${resetLink}</a>`
     });
 
     res.json({ message: 'Reset link sent to your email.' });
@@ -40,7 +42,7 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-// Reset Password Controller
+// ========== Reset Password Controller ==========
 exports.resetPassword = async (req, res) => {
   try {
     const { token } = req.params;
