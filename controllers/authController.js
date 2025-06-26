@@ -27,7 +27,7 @@ exports.forgotPassword = async (req, res) => {
       }
     });
 
-    const resetLink = `https://YOUR_FRONTEND_URL/reset-password/${resetToken}`;
+    const resetLink = `https://tb-frontend-beta.vercel.app/reset-password/${resetToken}`;
     await transporter.sendMail({
       to: user.email,
       subject: 'Password Reset',
