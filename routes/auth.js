@@ -18,7 +18,7 @@ const transporter = nodemailer.createTransport({
 router.post('/signup', async (req, res) => {
   console.log('======== SIGNUP ENDPOINT HIT ========');
   try {
-    const { email, password } = req.body;
+    const { email, password, referrerId } = req.body; // <-- Referrer ID included
 
     // Check user exists
     const existingUser = await User.findOne({ email });
@@ -27,8 +27,17 @@ router.post('/signup', async (req, res) => {
     // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Save user (with isVerified: false & otp)
-    const user = new User({ email, password, isVerified: false, otp });
+    // Prepare user object (add referrerId if valid)
+    const userData = { email, password, isVerified: false, otp };
+
+    // Referral logic (only if referrerId is valid)
+    if (referrerId && typeof referrerId === "string" && referrerId.length === 24) {
+      const refUser = await User.findById(referrerId);
+      if (refUser) userData.referrerId = referrerId;
+    }
+
+    // Save user
+    const user = new User(userData);
     await user.save();
 
     // Send OTP email
@@ -52,7 +61,7 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// 2. VERIFY OTP
+// 2. VERIFY OTP (no change)
 router.post('/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -74,7 +83,7 @@ router.post('/verify-otp', async (req, res) => {
   }
 });
 
-// 3. LOGIN (Allow only if verified)
+// 3. LOGIN (no change)
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
