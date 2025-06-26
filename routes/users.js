@@ -17,11 +17,15 @@ const auth = (req, res, next) => {
   }
 };
 
-// GET /api/users/me
+// **IMPORTANT: GET /api/users/me** (this is the path your frontend calls)
 router.get('/me', auth, async (req, res) => {
-  const user = await User.findById(req.user.id).select('-password');
-  if (!user) return res.status(404).json({ message: 'User not found' });
-  res.json({ id: user._id, email: user.email, balance: user.balance });
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json({ id: user._id, email: user.email, balance: user.balance });
+  } catch {
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 module.exports = router;
