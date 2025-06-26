@@ -3,7 +3,7 @@ const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
-// Register, login, verify OTP (as you already have them)...
+// ======================= REGISTER, LOGIN, OTP ETC (AS BEFORE) =======================
 
 // ========== Forgot Password Controller ==========
 exports.forgotPassword = async (req, res) => {
@@ -55,6 +55,7 @@ exports.resetPassword = async (req, res) => {
     if (!user) return res.status(400).json({ message: 'Invalid or expired token.' });
 
     user.password = newPassword;
+    user.markModified('password');        // <-- YEH LINE BILKUL JARURI!
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
@@ -65,3 +66,5 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// ========== Baaki register, login, OTP controllers bhi isi file me as before ==========
