@@ -17,15 +17,23 @@ const auth = (req, res, next) => {
   }
 };
 
-// **IMPORTANT: GET /api/users/me** (this is the path your frontend calls)
+// GET /api/users/me
 router.get('/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json({ id: user._id, email: user.email, balance: user.balance });
+    res.json({
+      id: user._id,
+      email: user.email,
+      balance: user.balance,
+      referralEarnings: user.referralEarnings || 0,
+      referralHistory: user.referralHistory || []
+    });
   } catch {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Optionally, ek separate API bana sakte ho for referral/summary, but abhi abhi /me se ho jayega.
 
 module.exports = router;
