@@ -4,6 +4,7 @@ const router = express.Router();
 const User = require('../models/User');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
+const authController = require('../controllers/authController'); // <-- YAHAN IMPORT KARO
 
 // Nodemailer config (Gmail App Password required!)
 const transporter = nodemailer.createTransport({
@@ -16,109 +17,21 @@ const transporter = nodemailer.createTransport({
 
 // 1. SIGNUP with OTP email send
 router.post('/signup', async (req, res) => {
-  console.log('======== SIGNUP ENDPOINT HIT ========');
-  try {
-    const { email, password, referrerId } = req.body; // <-- Referrer ID included
-
-    // Check user exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: 'User already exists' });
-
-    // Generate OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Prepare user object (add referrerId if valid)
-    const userData = { email, password, isVerified: false, otp };
-
-    // Referral logic (only if referrerId is valid)
-    if (referrerId && typeof referrerId === "string" && referrerId.length === 24) {
-      const refUser = await User.findById(referrerId);
-      if (refUser) userData.referrerId = referrerId;
-    }
-
-    // Save user
-    const user = new User(userData);
-    await user.save();
-
-    // Send OTP email
-    try {
-      const info = await transporter.sendMail({
-        from: '"Titali Bhavara" <shubhamlasankar10@gmail.com>',
-        to: email,
-        subject: 'Verify Your Email',
-        text: `Your OTP is: ${otp}`,
-        html: `<h2>Your OTP is: <b>${otp}</b></h2>`
-      });
-      console.log('Email sent:', info.response);
-    } catch (err) {
-      console.error('Email send error:', err);
-    }
-
-    res.status(201).json({ message: 'Signup successful. OTP sent to email.' });
-  } catch (err) {
-    console.error('Signup error:', err);
-    res.status(500).json({ message: 'Signup failed. Please try again.' });
-  }
+  // ...tumhara pura signup code bilkul sahi hai
 });
 
-// 2. VERIFY OTP (no change)
+// 2. VERIFY OTP
 router.post('/verify-otp', async (req, res) => {
-  try {
-    const { email, otp } = req.body;
-    const user = await User.findOne({ email });
-
-    if (!user) return res.status(400).json({ message: 'User not found' });
-    if (user.isVerified) return res.status(400).json({ message: 'Already verified.' });
-
-    if (user.otp === otp) {
-      user.isVerified = true;
-      user.otp = null;
-      await user.save();
-      return res.status(200).json({ message: 'Email verified successfully!' });
-    } else {
-      return res.status(400).json({ message: 'Invalid OTP. Please try again.' });
-    }
-  } catch (err) {
-    res.status(500).json({ message: 'OTP verification failed.' });
-  }
+  // ...tumhara verify OTP code bhi sahi hai
 });
 
-// 3. LOGIN (no change)
+// 3. Forgot Password (connect controller)
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password/:token', authController.resetPassword);
+
+// 4. LOGIN (no change)
 router.post('/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email });
-
-    if (!user) return res.status(400).json({ message: 'User not found' });
-    if (!user.isVerified) return res.status(401).json({ message: 'Please verify your email first.' });
-
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
-
-    // ✅ lastActive update karo!
-    user.lastActive = new Date();
-    await user.save();
-
-    // Yahan JWT token generate karo
-    const token = jwt.sign(
-      { id: user._id, email: user.email, role: user.role || 'user' },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    res.status(200).json({
-      message: 'Login successful',
-      token, // <- yahi token frontend ko bhejna hai!
-      user: {
-        id: user._id,
-        email: user.email,
-        balance: user.balance,
-        role: user.role || 'user'
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ message: 'Login failed' });
-  }
+  // ...login code sahi hai, lastActive update bhi sahi hai
 });
 
 module.exports = router;
