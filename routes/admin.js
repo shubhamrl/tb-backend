@@ -21,14 +21,13 @@ router.get('/users', async (req, res) => {
       filter.$or = orFilters;
     }
 
-    // List of users for table
+    // List of users for table (sab fields including referral details)
     const users = await User.find(filter).select('-password');
 
     // Total users (ignoring search)
     const total = await User.countDocuments();
 
     // Active users: last 10 minutes me jis user ka lastActive field update hua
-    // NOTE: 'lastActive' field User schema me hona chahiye! Nahi hai to add karo.
     const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000);
     const active = await User.countDocuments({ lastActive: { $gte: tenMinsAgo } });
 
@@ -55,7 +54,55 @@ router.put('/users/:id/balance', async (req, res) => {
   }
 });
 
+// ====== REWARD REFERRAL API ======
+/**
+ * Admin rewards referral (only once per referred user, after first deposit is verified)
+ * POST /api/admin/users/:id/reward-referral
+ * :id => referred user id (jise refer karke join kiya)
+ */
+router.post('/users/:id/reward-referral', async (req, res) => {
+  try {
+    const referred = await User.findById(req.params.id);
+    if (!referred) return res.status(404).json({ message: 'User not found' });
+    if (referred.referralRewarded) {
+      return res.status(400).json({ message: 'Reward already given' });
+    }
+    if (!referred.referrerId) {
+      return res.status(400).json({ message: 'No referrer found for this user' });
+    }
+    // Find referrer
+    const referrer = await User.findById(referred.referrerId);
+    if (!referrer) {
+      return res.status(400).json({ message: 'Referrer not found' });
+    }
 
+    // 1. Update balances
+    referrer.balance += 100;
+    referred.balance += 50;
+
+    // 2. Update referrer earning and history
+    referrer.referralEarnings += 100;
+    referrer.referralHistory.push({
+      referredUser: referred._id,
+      amount: 100,
+      note: 'Rewarded for first deposit',
+      date: new Date()
+    });
+
+    // 3. Mark referred as rewarded
+    referred.referralRewarded = true;
+    referred.referralRewardedAt = new Date();
+
+    // 4. Save all
+    await referrer.save();
+    await referred.save();
+
+    res.json({ message: "Referral reward given!", referrerBalance: referrer.balance, referredBalance: referred.balance });
+  } catch (err) {
+    console.error('Reward error:', err);
+    res.status(500).json({ message: 'Error rewarding referral' });
+  }
+});
 
 // GET /api/admin/today-rounds-summary
 router.get('/today-rounds-summary', async (req, res) => {
@@ -74,7 +121,6 @@ router.get('/today-rounds-summary', async (req, res) => {
     const currentRoundNumber = Math.min(Math.floor(secondsPassed / 90) + 1, 960);
 
     // All today's bets
-    const Bet = require('../models/Bet');
     const bets = await Bet.find({
       createdAt: { $gte: startOfDay, $lte: nowIST }
     });
@@ -87,7 +133,6 @@ router.get('/today-rounds-summary', async (req, res) => {
     });
 
     // Find all winners for today
-    const Winner = require('../models/Winner');
     const winners = await Winner.find({ round: { $gte: 1, $lte: currentRoundNumber } });
     const winnersByRound = {};
     winners.forEach(win => {
