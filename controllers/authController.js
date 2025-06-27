@@ -91,7 +91,11 @@ exports.login = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-    res.json({ token });
+    res.json({
+      token,
+      role: user.role,     // <- Yahi sabse important hai!
+      email: user.email    // (optional)
+    });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ message: 'Server error' });
