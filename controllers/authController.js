@@ -1,4 +1,4 @@
-// server/controllers/authController.js
+// controllers/authController.js
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const User = require('../models/User');
@@ -101,8 +101,7 @@ exports.resetPassword = async (req, res) => {
     if (!user) return res.status(400).json({ message: 'Invalid or expired token.' });
 
     user.password = newPassword;
-    // Password hash ho jayega agar model me pre('save') laga hai!
-    user.markModified('password');
+    user.markModified('password'); // Required for Mongoose to re-hash if password is changed
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
