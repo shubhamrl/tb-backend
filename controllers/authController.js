@@ -1,11 +1,57 @@
+// server/controllers/authController.js
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
-// ======================= REGISTER, LOGIN, OTP ETC (AS BEFORE) =======================
+// ========== Register ==========
+exports.register = async (req, res) => {
+  try {
+    const { email, password, referrerId } = req.body;
 
-// ========== Forgot Password Controller ==========
+    // Email already registered?
+    if (await User.findOne({ email })) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+
+    // Prepare new user object
+    const newUser = new User({ email, password });
+
+    // Referral logic: set referrerId if present and valid
+    if (referrerId && typeof referrerId === "string" && referrerId.length === 24) {
+      const refUser = await User.findById(referrerId);
+      if (refUser) newUser.referrerId = referrerId;
+    }
+
+    await newUser.save();
+    res.status(201).json({ message: 'User created' });
+  } catch (err) {
+    console.error('Signup error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ========== Login ==========
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user || !(await user.comparePassword(password))) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    res.json({ token });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ========== Forgot Password ==========
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -42,7 +88,7 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-// ========== Reset Password Controller ==========
+// ========== Reset Password ==========
 exports.resetPassword = async (req, res) => {
   try {
     const { token } = req.params;
@@ -55,7 +101,8 @@ exports.resetPassword = async (req, res) => {
     if (!user) return res.status(400).json({ message: 'Invalid or expired token.' });
 
     user.password = newPassword;
-    user.markModified('password');        // <-- YEH LINE BILKUL JARURI!
+    // Password hash ho jayega agar model me pre('save') laga hai!
+    user.markModified('password');
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
@@ -66,5 +113,3 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
-
-// ========== Baaki register, login, OTP controllers bhi isi file me as before ==========
