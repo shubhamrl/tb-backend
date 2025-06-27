@@ -4,7 +4,7 @@ const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
-// ========== Register ==========
+// ========== Register (OTP with Email) ==========
 exports.register = async (req, res) => {
   try {
     const { email, password, referrerId } = req.body;
@@ -14,8 +14,11 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
+    // OTP generate karo (6 digit)
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
     // Prepare new user object
-    const newUser = new User({ email, password });
+    const newUser = new User({ email, password, otp, isVerified: false });
 
     // Referral logic: set referrerId if present and valid
     if (referrerId && typeof referrerId === "string" && referrerId.length === 24) {
@@ -24,9 +27,50 @@ exports.register = async (req, res) => {
     }
 
     await newUser.save();
-    res.status(201).json({ message: 'User created' });
+
+    // Nodemailer Setup (env vars required!)
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+
+    await transporter.sendMail({
+      to: email,
+      subject: 'Verify your email - OTP',
+      text: `Your OTP code is: ${otp}`,
+      html: `<h3>Your OTP code is:</h3><p style="font-size:24px;font-weight:bold">${otp}</p>`
+    });
+
+    res.status(201).json({ message: 'User created. OTP sent to email.' });
   } catch (err) {
     console.error('Signup error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ========== Verify OTP ==========
+exports.verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.isVerified) return res.status(400).json({ message: 'Already verified!' });
+
+    if (user.otp !== otp) {
+      return res.status(400).json({ message: 'Invalid OTP' });
+    }
+
+    user.isVerified = true;
+    user.otp = null;
+    await user.save();
+
+    res.json({ message: 'OTP verified successfully. Account activated.' });
+  } catch (err) {
+    console.error('OTP verify error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -38,6 +82,9 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user || !(await user.comparePassword(password))) {
       return res.status(400).json({ message: 'Invalid credentials' });
+    }
+    if (!user.isVerified) {
+      return res.status(400).json({ message: 'Account not verified. Please verify OTP.' });
     }
     const token = jwt.sign(
       { id: user._id, email: user.email },
