@@ -116,9 +116,9 @@ exports.distributePayouts = async (req, res) => {
       if (!bets.length) {
         // ❌ No bets at all → pick random image
         const IMAGE_LIST = [
-          'umbrella', 'football', 'sun', 'diya', 'cow', 'bucket',
-          'kite', 'spinningTop', 'rose', 'butterfly', 'pigeon', 'rabbit'
-        ];
+  'छतरी', 'फुटबॉल', 'सूरज', 'दीया', 'गाय', 'बाल्टी',
+  'पतंग', 'भंवरा', 'गुलाब', 'तितली', 'कबूतर', 'खरगोश'
+];
         choice = IMAGE_LIST[Math.floor(Math.random() * IMAGE_LIST.length)];
       } else {
         // ✅ Bets present → lowest total bet wins
