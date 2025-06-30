@@ -1,6 +1,20 @@
-const Bet    = require('../models/Bet');
+const Bet = require('../models/Bet');
 const Winner = require('../models/Winner');
-const User   = require('../models/User');
+const User = require('../models/User');
+const LastWins = require('../models/LastWins'); // NEW
+
+// ----- Utility: Maintain last 10 wins -----
+async function addLastWin(choice) {
+  let doc = await LastWins.findOne();
+  if (!doc) doc = await LastWins.create({ wins: [] });
+  doc.wins.unshift(choice);
+  if (doc.wins.length > 10) doc.wins = doc.wins.slice(0, 10);
+  await doc.save();
+}
+async function getLastWins() {
+  let doc = await LastWins.findOne();
+  return doc ? doc.wins : [];
+}
 
 // 1️⃣ Get Current Round Bets & Totals, plus existing winner (if any)
 exports.getCurrentRound = async (req, res) => {
@@ -61,7 +75,7 @@ exports.placeBet = async (req, res) => {
 
     // Deduct balance and save bet
     user.balance -= amount;
-    user.lastActive = new Date(); // ✅ yahan bhi lastActive update
+    user.lastActive = new Date();
     await user.save();
 
     const bet = new Bet({ user: userId, round, choice, amount });
@@ -83,14 +97,15 @@ exports.setManualWinner = async (req, res) => {
       return res.status(400).json({ message: 'Invalid round' });
     }
 
-    // Only update/create winner doc, DON'T emit socket here!
     await Winner.findOneAndUpdate(
       { round },
       { choice, createdAt: new Date() },
       { upsert: true, new: true }
     );
 
-    // DO NOT EMIT SOCKET HERE! Let payout API do it.
+    // LastWins me manual winner bhi add karo
+    await addLastWin(choice);
+
     return res.json({ message: 'Winner recorded (awaiting payout)', choice });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -110,18 +125,18 @@ exports.distributePayouts = async (req, res) => {
     let choice;
 
     if (!winDoc) {
-      // ✅ No manual winner → Auto winner logic starts
+      // No manual winner → Auto winner logic
       const bets = await Bet.find({ round });
 
       if (!bets.length) {
-        // ❌ No bets at all → pick random image
+        // No bets at all → pick random image
         const IMAGE_LIST = [
           'umbrella', 'football', 'sun', 'diya', 'cow', 'bucket',
           'kite', 'spinningTop', 'rose', 'butterfly', 'pigeon', 'rabbit'
         ];
         choice = IMAGE_LIST[Math.floor(Math.random() * IMAGE_LIST.length)];
       } else {
-        // ✅ Bets present → lowest total bet wins
+        // Bets present → lowest total bet wins
         const totals = {};
         bets.forEach(b => {
           totals[b.choice] = (totals[b.choice] || 0) + b.amount;
@@ -136,21 +151,25 @@ exports.distributePayouts = async (req, res) => {
         choice = lowestChoices[Math.floor(Math.random() * lowestChoices.length)];
       }
 
-      // ✅ Save this auto-decided winner
+      // Save this auto-decided winner
       winDoc = await Winner.findOneAndUpdate(
         { round },
         { choice, createdAt: new Date() },
         { upsert: true, new: true }
       );
+
+      // Also add auto-decided winner to last wins
+      await addLastWin(choice);
+
     } else {
-      // ✅ Manual winner already set
       choice = winDoc.choice;
+      // Already added to last wins in setManualWinner
     }
 
-    // ✅ Emit winner to all clients
+    // Emit winner to all clients
     global.io.emit('winner-announced', { round, choice });
 
-    // ✅ Payout to winning users
+    // Payout to winning users
     const winningBets = await Bet.find({ round, choice });
     for (const wb of winningBets) {
       const user = await User.findById(wb.user);
@@ -160,11 +179,21 @@ exports.distributePayouts = async (req, res) => {
       }
     }
 
-    // ✅ Notify all clients that payouts done
+    // Notify all clients that payouts done
     global.io.emit('payouts-distributed', { round, choice });
 
     return res.json({ message: 'Payouts distributed', round, choice });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// 5️⃣ API: GET /bets/last-wins
+exports.getLastWins = async (req, res) => {
+  try {
+    const wins = await getLastWins();
+    res.json({ wins });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
   }
 };
