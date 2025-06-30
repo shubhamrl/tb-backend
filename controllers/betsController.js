@@ -3,13 +3,16 @@ const Winner = require('../models/Winner');
 const User = require('../models/User');
 const LastWins = require('../models/LastWins'); // NEW
 
-// ----- Utility: Maintain last 10 wins -----
+// ------------- Maintain last 10 wins ----------------
 async function addLastWin(choice) {
   let doc = await LastWins.findOne();
   if (!doc) doc = await LastWins.create({ wins: [] });
-  doc.wins.unshift(choice);
-  if (doc.wins.length > 10) doc.wins = doc.wins.slice(0, 10);
-  await doc.save();
+  // No duplicate consecutive entry
+  if (doc.wins[0] !== choice) {
+    doc.wins.unshift(choice);
+    if (doc.wins.length > 10) doc.wins = doc.wins.slice(0, 10);
+    await doc.save();
+  }
 }
 async function getLastWins() {
   let doc = await LastWins.findOne();
@@ -89,7 +92,8 @@ exports.placeBet = async (req, res) => {
   }
 };
 
-// 3️⃣ Set Manual Winner (protected)
+// 3️⃣ Set Manual Winner (ADMIN ONLY)
+// -> Admin can set any winner, any time, for any round (even if no bets!)
 exports.setManualWinner = async (req, res) => {
   try {
     const { choice, round } = req.body;
@@ -97,14 +101,18 @@ exports.setManualWinner = async (req, res) => {
       return res.status(400).json({ message: 'Invalid round' });
     }
 
+    // Upsert: overwrite if already set, or create if not
     await Winner.findOneAndUpdate(
       { round },
       { choice, createdAt: new Date() },
       { upsert: true, new: true }
     );
 
-    // LastWins me manual winner bhi add karo
+    // Add to LastWins only if not already added
     await addLastWin(choice);
+
+    // Notify (emit) winner set for live update if needed
+    global.io.emit('winner-announced', { round, choice });
 
     return res.json({ message: 'Winner recorded (awaiting payout)', choice });
   } catch (err) {
@@ -112,7 +120,7 @@ exports.setManualWinner = async (req, res) => {
   }
 };
 
-// 4️⃣ Distribute Payouts (protected)
+// 4️⃣ Distribute Payouts (called at round end)
 exports.distributePayouts = async (req, res) => {
   try {
     const { round } = req.body;
@@ -120,56 +128,44 @@ exports.distributePayouts = async (req, res) => {
       return res.status(400).json({ message: 'Invalid round' });
     }
 
-    // Check if winner already set manually
     let winDoc = await Winner.findOne({ round });
     let choice;
 
     if (!winDoc) {
-      // No manual winner → Auto winner logic
+      // ========== AUTO WINNER LOGIC ==========
       const bets = await Bet.find({ round });
-
       if (!bets.length) {
-        // No bets at all → pick random image
+        // No bets, pick random image
         const IMAGE_LIST = [
           'umbrella', 'football', 'sun', 'diya', 'cow', 'bucket',
           'kite', 'spinningTop', 'rose', 'butterfly', 'pigeon', 'rabbit'
         ];
         choice = IMAGE_LIST[Math.floor(Math.random() * IMAGE_LIST.length)];
       } else {
-        // Bets present → lowest total bet wins
+        // Lowest bet amount wins
         const totals = {};
         bets.forEach(b => {
           totals[b.choice] = (totals[b.choice] || 0) + b.amount;
         });
-
         let minAmount = Math.min(...Object.values(totals));
-
         const lowestChoices = Object.entries(totals)
           .filter(([_, amt]) => amt === minAmount)
           .map(([name]) => name);
-
         choice = lowestChoices[Math.floor(Math.random() * lowestChoices.length)];
       }
 
-      // Save this auto-decided winner
-      winDoc = await Winner.findOneAndUpdate(
-        { round },
-        { choice, createdAt: new Date() },
-        { upsert: true, new: true }
-      );
-
-      // Also add auto-decided winner to last wins
+      // Save winner
+      winDoc = await Winner.create({ round, choice, createdAt: new Date() });
+      // Add to last wins
       await addLastWin(choice);
-
+      // Emit for real-time
+      global.io.emit('winner-announced', { round, choice });
     } else {
       choice = winDoc.choice;
-      // Already added to last wins in setManualWinner
+      // Already in lastWins if manual set earlier
     }
 
-    // Emit winner to all clients
-    global.io.emit('winner-announced', { round, choice });
-
-    // Payout to winning users
+    // Payout to winners
     const winningBets = await Bet.find({ round, choice });
     for (const wb of winningBets) {
       const user = await User.findById(wb.user);
@@ -179,7 +175,7 @@ exports.distributePayouts = async (req, res) => {
       }
     }
 
-    // Notify all clients that payouts done
+    // Notify payouts done
     global.io.emit('payouts-distributed', { round, choice });
 
     return res.json({ message: 'Payouts distributed', round, choice });
