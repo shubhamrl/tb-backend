@@ -5,12 +5,12 @@ const {
   getCurrentRound,
   placeBet,
   setManualWinner,
-  distributePayouts
+  distributePayouts,
+  getLastWins // NEW
 } = require('../controllers/betsController');
 
 router.get('/current-round', getCurrentRound);
 
-// --- Combined API
 router.get('/live-state', auth, async (req, res) => {
   try {
     // Time calculations
@@ -71,7 +71,7 @@ router.get('/live-state', auth, async (req, res) => {
       round,
       timer,
       totals,
-      userBets,        // ✅ sent to frontend
+      userBets,
       winnerChoice,
       balance,
     });
@@ -85,5 +85,8 @@ router.get('/live-state', auth, async (req, res) => {
 router.post('/place-bet', auth, placeBet);
 router.post('/set-winner', auth, setManualWinner);
 router.post('/distribute-payouts', auth, distributePayouts);
+
+// ===== LAST 10 WINS API for Admin Panel =====
+router.get('/last-wins', getLastWins);
 
 module.exports = router;
