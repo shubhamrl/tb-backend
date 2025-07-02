@@ -36,6 +36,7 @@ exports.getCurrentRound = async (req, res) => {
 
     const bets = await Bet.find({ round });
 
+    // Agar bet nahi lagi hai to totals empty object hoga
     const totals = bets.reduce((acc, b) => {
       acc[b.choice] = (acc[b.choice] || 0) + b.amount;
       return acc;
@@ -51,7 +52,8 @@ exports.getCurrentRound = async (req, res) => {
     const winDoc = await Winner.findOne({ round });
     const winnerChoice = winDoc ? winDoc.choice : null;
 
-    return res.json({ round, totals, userBets, winnerChoice });
+    // Only send totals if bets exist
+    return res.json({ round, totals: Object.keys(totals).length ? totals : {}, userBets, winnerChoice });
   } catch (err) {
     console.error('getCurrentRound error:', err);
     return res.status(500).json({ message: 'Server error' });
@@ -93,7 +95,6 @@ exports.placeBet = async (req, res) => {
 };
 
 // 3️⃣ Set Manual Winner (ADMIN ONLY)
-// -> Admin can set any winner, any time, for any round (even if no bets!)
 exports.setManualWinner = async (req, res) => {
   try {
     const { choice, round } = req.body;
@@ -128,11 +129,12 @@ exports.distributePayouts = async (req, res) => {
       return res.status(400).json({ message: 'Invalid round' });
     }
 
+    // WINNER LOGIC: admin winner > lowest bet > random
     let winDoc = await Winner.findOne({ round });
     let choice;
 
     if (!winDoc) {
-      // ========== AUTO WINNER LOGIC ==========
+      // Winner abhi tak admin se set nahi hua, to system auto set karega:
       const bets = await Bet.find({ round });
       if (!bets.length) {
         // No bets, pick random image
