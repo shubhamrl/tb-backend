@@ -112,8 +112,8 @@ exports.setManualWinner = async (req, res) => {
     // Add to LastWins only if not already added
     await addLastWin(choice);
 
-    // Notify (emit) winner set for live update if needed
-    global.io.emit('winner-announced', { round, choice });
+    // ========== FIX: DO NOT EMIT WINNER HERE ==========
+    // global.io.emit('winner-announced', { round, choice });
 
     return res.json({ message: 'Winner recorded (awaiting payout)', choice });
   } catch (err) {
@@ -160,11 +160,13 @@ exports.distributePayouts = async (req, res) => {
       winDoc = await Winner.create({ round, choice, createdAt: new Date() });
       // Add to last wins
       await addLastWin(choice);
-      // Emit for real-time
+      // === Winner announce emit YAHI PAR ===
       global.io.emit('winner-announced', { round, choice });
     } else {
       choice = winDoc.choice;
       // Already in lastWins if manual set earlier
+      // Winner announce emit YAHI PAR, taaki manual ho ya auto, payout ke baad hi ho!
+      global.io.emit('winner-announced', { round, choice });
     }
 
     // Payout to winners
