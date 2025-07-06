@@ -2,15 +2,19 @@ const mongoose = require('mongoose');
 
 const winnerSchema = new mongoose.Schema({
   round: {
-    type: Number,    // <-- string nahi, number rakho! (bet ke round jaise)
+    type: Number,
     required: true,
     unique: true
   },
   choice: {
-    type: String,    // image name ya number
+    type: String,
     required: true
   },
-  totalPayout: {
+  paid: { // <-- Double payout ka lock!
+    type: Boolean,
+    default: false
+  },
+  totalPayout: { // Optional, future use (rakh sakte ho)
     type: Number,
     default: 0
   },
