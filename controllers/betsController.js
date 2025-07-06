@@ -3,15 +3,17 @@ const Winner = require('../models/Winner');
 const User = require('../models/User');
 const LastWins = require('../models/LastWins');
 
-// ------------- Maintain last 10 wins ----------------
-async function addLastWin(choice) {
+// Maintain last 10 wins with round+choice, no duplicate consecutive entry
+async function addLastWin(choice, round) {
   let doc = await LastWins.findOne();
   if (!doc) doc = await LastWins.create({ wins: [] });
-  if (doc.wins[0] !== choice) {
-    doc.wins.unshift(choice);
-    if (doc.wins.length > 10) doc.wins = doc.wins.slice(0, 10);
-    await doc.save();
-  }
+
+  // Skip if same round/choice already at top
+  if (doc.wins[0] && doc.wins[0].round === round && doc.wins[0].choice === choice) return;
+
+  doc.wins.unshift({ round, choice });
+  if (doc.wins.length > 10) doc.wins = doc.wins.slice(0, 10);
+  await doc.save();
 }
 async function getLastWins() {
   let doc = await LastWins.findOne();
@@ -32,10 +34,8 @@ exports.getCurrentRound = async (req, res) => {
     }
 
     const userId = req.user.id || req.user._id;
-
     const bets = await Bet.find({ round });
 
-    // Agar bet nahi lagi hai to totals empty object hoga
     const totals = bets.reduce((acc, b) => {
       acc[b.choice] = (acc[b.choice] || 0) + b.amount;
       return acc;
@@ -104,9 +104,8 @@ exports.setManualWinner = async (req, res) => {
       { upsert: true, new: true }
     );
 
-    await addLastWin(choice);
+    await addLastWin(choice, round); // Pass round here!
 
-    // Do NOT emit winner here! Only emit after payout!
     return res.json({ message: 'Winner recorded (awaiting payout)', choice });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -130,10 +129,8 @@ exports.distributePayouts = async (req, res) => {
     }
 
     if (!winDoc) {
-      // Winner not set, auto-select logic
       const bets = await Bet.find({ round });
       if (!bets.length) {
-        // No bets, pick random image
         const IMAGE_LIST = [
           'umbrella', 'football', 'sun', 'diya', 'cow', 'bucket',
           'kite', 'spinningTop', 'rose', 'butterfly', 'pigeon', 'rabbit'
@@ -152,20 +149,18 @@ exports.distributePayouts = async (req, res) => {
       }
 
       winDoc = await Winner.create({ round, choice, createdAt: new Date(), paid: false });
-      await addLastWin(choice);
+      await addLastWin(choice, round); // Pass round here!
       global.io.emit('winner-announced', { round, choice });
     } else {
       choice = winDoc.choice;
       global.io.emit('winner-announced', { round, choice });
     }
 
-    // 2. Double-check race condition (very safe)
     winDoc = await Winner.findOne({ round });
     if (winDoc && winDoc.paid) {
       return res.status(400).json({ message: 'Payout already done for this round' });
     }
 
-    // 3. Pay winners
     const winningBets = await Bet.find({ round, choice });
     for (const wb of winningBets) {
       const user = await User.findById(wb.user);
@@ -175,7 +170,6 @@ exports.distributePayouts = async (req, res) => {
       }
     }
 
-    // 4. Mark Winner paid=true
     await Winner.findOneAndUpdate({ round }, { paid: true });
 
     global.io.emit('payouts-distributed', { round, choice });
