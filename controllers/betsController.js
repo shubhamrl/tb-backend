@@ -99,21 +99,20 @@ exports.placeBet = async (req, res) => {
 };
 
 // ========== 3️⃣ SET MANUAL WINNER ==========
+// REMOVE addLastWin from here!
 exports.setManualWinner = async (req, res) => {
   try {
     const { choice, round } = req.body;
     if (!round || typeof round !== 'number' || round < 1 || round > 960) {
       return res.status(400).json({ message: 'Invalid round' });
     }
-
     await Winner.findOneAndUpdate(
       { round },
-      { choice, createdAt: new Date() },
+      { choice, createdAt: new Date(), paid: false },
       { upsert: true, new: true }
     );
-
-    await addLastWin(choice, round); // record in last 10 wins
-
+    // NO addLastWin here!
+    global.io.emit('winner-announced', { round, choice });
     return res.json({ message: 'Winner recorded (awaiting payout)', choice });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
