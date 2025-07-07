@@ -6,11 +6,14 @@ const {
   placeBet,
   setManualWinner,
   distributePayouts,
-  getLastWins // NEW
+  getLastWins,
+  announceWinner // <-- NEW: Winner announce controller
 } = require('../controllers/betsController');
 
+// 1️⃣ Current round details
 router.get('/current-round', getCurrentRound);
 
+// 2️⃣ Live state (used by game for timer, bets, winner etc)
 router.get('/live-state', auth, async (req, res) => {
   try {
     // Time calculations
@@ -82,11 +85,19 @@ router.get('/live-state', auth, async (req, res) => {
   }
 });
 
+// 3️⃣ Place bet
 router.post('/place-bet', auth, placeBet);
+
+// 4️⃣ Set manual winner (admin)
 router.post('/set-winner', auth, setManualWinner);
+
+// 5️⃣ Distribute payouts (auto/manual at round end)
 router.post('/distribute-payouts', auth, distributePayouts);
 
-// ===== LAST 10 WINS API for Admin Panel =====
+// 6️⃣ Announce winner early (timer 5 pe, payout nahi) — NEW!
+router.post('/announce-winner', auth, announceWinner);
+
+// 7️⃣ Last 10 wins
 router.get('/last-wins', getLastWins);
 
 module.exports = router;
