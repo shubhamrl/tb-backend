@@ -1,5 +1,3 @@
-// betsController.js
-
 const Bet = require('../models/Bet');
 const Winner = require('../models/Winner');
 const User = require('../models/User');
@@ -99,7 +97,6 @@ exports.placeBet = async (req, res) => {
 };
 
 // ========== 3️⃣ SET MANUAL WINNER ==========
-// REMOVE addLastWin from here!
 exports.setManualWinner = async (req, res) => {
   try {
     const { choice, round } = req.body;
@@ -111,7 +108,6 @@ exports.setManualWinner = async (req, res) => {
       { choice, createdAt: new Date(), paid: false },
       { upsert: true, new: true }
     );
-    // NO addLastWin here!
     global.io.emit('winner-announced', { round, choice });
     return res.json({ message: 'Winner recorded (awaiting payout)', choice });
   } catch (err) {
@@ -192,7 +188,53 @@ exports.distributePayouts = async (req, res) => {
   }
 };
 
-// ========== 5️⃣ LAST 10 WINS ==========
+// ========== 5️⃣ WINNER ANNOUNCE (TIMER 5 pe, no payout) ==========
+exports.announceWinner = async (req, res) => {
+  try {
+    const { round } = req.body;
+    if (!round || typeof round !== 'number' || round < 1 || round > 960) {
+      return res.status(400).json({ message: 'Invalid round' });
+    }
+    let winDoc = await Winner.findOne({ round });
+    let choice;
+
+    if (!winDoc) {
+      const bets = await Bet.find({ round });
+      if (!bets.length) {
+        // Random winner
+        const IMAGE_LIST = [
+          'umbrella', 'football', 'sun', 'diya', 'cow', 'bucket',
+          'kite', 'spinningTop', 'rose', 'butterfly', 'pigeon', 'rabbit'
+        ];
+        choice = IMAGE_LIST[Math.floor(Math.random() * IMAGE_LIST.length)];
+      } else {
+        // Lowest bet winner
+        const totals = {};
+        bets.forEach(b => {
+          totals[b.choice] = (totals[b.choice] || 0) + b.amount;
+        });
+        let minAmount = Math.min(...Object.values(totals));
+        const lowestChoices = Object.entries(totals)
+          .filter(([_, amt]) => amt === minAmount)
+          .map(([name]) => name);
+        choice = lowestChoices[Math.floor(Math.random() * lowestChoices.length)];
+      }
+
+      winDoc = await Winner.create({ round, choice, createdAt: new Date(), paid: false });
+      await addLastWin(choice, round);
+      global.io.emit('winner-announced', { round, choice });
+      return res.json({ message: 'Winner announced', round, choice });
+    } else {
+      choice = winDoc.choice;
+      global.io.emit('winner-announced', { round, choice });
+      return res.json({ message: 'Winner already announced', round, choice });
+    }
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ========== 6️⃣ LAST 10 WINS ==========
 exports.getLastWins = async (req, res) => {
   try {
     const wins = await getLastWins();
@@ -200,4 +242,14 @@ exports.getLastWins = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
+};
+
+// EXPORTS
+module.exports = {
+  getCurrentRound,
+  placeBet,
+  setManualWinner,
+  distributePayouts,
+  getLastWins,
+  announceWinner  // <-- must add here!
 };
