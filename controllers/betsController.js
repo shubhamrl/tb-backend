@@ -7,7 +7,6 @@ const LastWins = require('../models/LastWins');
 async function addLastWin(choice, round) {
   let doc = await LastWins.findOne();
   if (!doc) doc = await LastWins.create({ wins: [] });
-
   if (doc.wins[0] && doc.wins[0].round === round && doc.wins[0].choice === choice) return;
   doc.wins.unshift({ round, choice });
   if (doc.wins.length > 10) doc.wins = doc.wins.slice(0, 10);
@@ -30,7 +29,6 @@ async function getCurrentRound(req, res) {
       const secondsPassed = Math.floor((nowIST - startOfDay) / 1000);
       round = Math.min(Math.floor(secondsPassed / 90) + 1, 960);
     }
-
     const userId = req.user.id || req.user._id;
     const bets = await Bet.find({ round });
 
@@ -76,7 +74,10 @@ async function placeBet(req, res) {
     user.lastActive = new Date();
     await user.save();
 
-    const bet = new Bet({ user: userId, round, choice, amount });
+    // ⭐️ Calculate sessionId
+    const sessionId = Math.floor((round - 1) / 960) + 1;
+
+    const bet = new Bet({ user: userId, round, choice, amount, sessionId });
     await bet.save();
 
     global.io.emit('bet-placed', { choice, amount, round });
@@ -153,12 +154,27 @@ async function distributePayouts(req, res) {
       return res.status(400).json({ message: 'Payout already done for this round' });
     }
 
-    const winningBets = await Bet.find({ round, choice });
+    // ⭐️ Distribute payouts and update win/payout in Bet
+    const allBets = await Bet.find({ round });
+    const winningBets = allBets.filter(b => b.choice === choice);
+
     for (const wb of winningBets) {
       const user = await User.findById(wb.user);
       if (user) {
         user.balance += wb.amount * 10;
         await user.save();
+      }
+      wb.payout = wb.amount * 10;
+      wb.win = true;
+      await wb.save();
+    }
+
+    // Optionally, mark all losing bets
+    for (const lb of allBets) {
+      if (lb.choice !== choice) {
+        lb.payout = 0;
+        lb.win = false;
+        await lb.save();
       }
     }
 
@@ -226,6 +242,43 @@ async function getLastWinsController(req, res) {
   }
 }
 
+// ========== 7️⃣ MY BET HISTORY (Only for logged-in user, only current session) ==========
+async function myBetHistory(req, res) {
+  try {
+    const userId = req.user.id || req.user._id;
+    // User ke latest sessionId wali bets dikhani hai
+    const lastBet = await Bet.findOne({ user: userId }).sort({ sessionId: -1, round: -1 });
+    const sessionId = lastBet ? lastBet.sessionId : 1;
+
+    const bets = await Bet.find({ user: userId, sessionId });
+
+    // Group by round, aggregate bets & winAmount
+    const roundMap = {};
+    bets.forEach(bet => {
+      if (!roundMap[bet.round]) {
+        roundMap[bet.round] = { round: bet.round, bets: [], winAmount: 0 };
+      }
+      roundMap[bet.round].bets.push({ choice: bet.choice, amount: bet.amount });
+      if (bet.win && bet.payout > 0) {
+        roundMap[bet.round].winAmount += bet.payout;
+      }
+    });
+
+    // Prepare array sorted by round desc
+    const history = Object.values(roundMap)
+      .sort((a, b) => b.round - a.round)
+      .map(row => ({
+        round: row.round,
+        bets: row.bets,
+        winAmount: row.winAmount
+      }));
+
+    res.json({ history });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
 // EXPORTS
 module.exports = {
   getCurrentRound,
@@ -233,5 +286,6 @@ module.exports = {
   setManualWinner,
   distributePayouts,
   getLastWins: getLastWinsController,
-  announceWinner
+  announceWinner,
+  myBetHistory
 };
