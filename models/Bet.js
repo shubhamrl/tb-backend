@@ -7,17 +7,29 @@ const betSchema = new mongoose.Schema({
     required: true
   },
   round: {
-    type: Number,      // <-- Yaha sirf "Number" likho!
+    type: Number,
     required: true
   },
   choice: {
-    type: String,      // image name ya number
+    type: String,
     required: true
   },
   amount: {
     type: Number,
     required: true,
     min: 1
+  },
+  sessionId: {
+    type: Number,
+    required: true
+  },
+  payout: {
+    type: Number,
+    default: 0
+  },
+  win: {
+    type: Boolean,
+    default: false
   },
   createdAt: {
     type: Date,
