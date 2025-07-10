@@ -96,8 +96,7 @@ async function setManualWinner(req, res) {
       { choice, createdAt: new Date(), paid: false },
       { upsert: true, new: true }
     );
-    // Only update winner in DB, do NOT emit to show winner immediately on frontend!
-    global.io.emit('winner-announced', { round, choice }); // Frontend handles display timing
+    // Don't emit instantly, winner announcement always at timer 5!
     return res.json({ message: 'Winner recorded (awaiting payout)', choice });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -141,10 +140,8 @@ async function distributePayouts(req, res) {
 
       winDoc = await Winner.create({ round, choice, createdAt: new Date(), paid: false });
       await addLastWin(choice, round);
-      global.io.emit('winner-announced', { round, choice });
     } else {
       choice = winDoc.choice;
-      global.io.emit('winner-announced', { round, choice });
     }
 
     winDoc = await Winner.findOne({ round });
@@ -178,6 +175,7 @@ async function distributePayouts(req, res) {
 
     await Winner.findOneAndUpdate({ round }, { paid: true });
 
+    global.io.emit('winner-announced', { round, choice });
     global.io.emit('payouts-distributed', { round, choice });
 
     return res.json({ message: 'Payouts distributed', round, choice });
@@ -218,13 +216,12 @@ async function announceWinner(req, res) {
 
       winDoc = await Winner.create({ round, choice, createdAt: new Date(), paid: false });
       await addLastWin(choice, round);
-      global.io.emit('winner-announced', { round, choice });
-      return res.json({ message: 'Winner announced', round, choice });
     } else {
       choice = winDoc.choice;
-      global.io.emit('winner-announced', { round, choice });
-      return res.json({ message: 'Winner already announced', round, choice });
     }
+    // Only at timer 5, emit to show winner (frontend will control UI)
+    global.io.emit('winner-announced', { round, choice });
+    return res.json({ message: 'Winner announced', round, choice });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
   }
@@ -285,7 +282,37 @@ async function myBetHistory(req, res) {
   }
 }
 
-// EXPORTS
+// ========== 8️⃣ GET TODAY'S PAYOUT/PROFIT SUMMARY ==========
+async function getTodaySummary(req, res) {
+  try {
+    const now = new Date();
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    const nowIST = new Date(now.getTime() + IST_OFFSET);
+    const startOfDay = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate(), 0, 0, 0);
+    const endOfDay = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate(), 23, 59, 59);
+
+    // All bets placed today
+    const bets = await Bet.find({ createdAt: { $gte: startOfDay, $lte: endOfDay } });
+
+    // Total bet amount (all bets, all users)
+    const totalBetsAmount = bets.reduce((sum, bet) => sum + (bet.amount || 0), 0);
+
+    // Total payout (sum of payout field for win:true bets)
+    const totalPayout = bets.reduce((sum, bet) => sum + (bet.payout || 0), 0);
+
+    // Profit calculation
+    const profit = totalBetsAmount - totalPayout;
+
+    res.json({
+      totalBetsAmount,
+      totalPayout,
+      profit
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+}
+
 module.exports = {
   getCurrentRound,
   placeBet,
@@ -293,5 +320,6 @@ module.exports = {
   distributePayouts,
   getLastWins: getLastWinsController,
   announceWinner,
-  myBetHistory
+  myBetHistory,
+  getTodaySummary
 };
