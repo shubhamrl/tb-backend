@@ -105,7 +105,7 @@ async function setManualWinner(req, res) {
   }
 }
 
-// ========== 4️⃣ DISTRIBUTE PAYOUTS (FIXED) ==========
+// ========== 4️⃣ DISTRIBUTE PAYOUTS ==========
 async function distributePayouts(req, res) {
   try {
     const { round } = req.body;
@@ -242,7 +242,7 @@ async function getLastWinsController(req, res) {
   }
 }
 
-// ========== 7️⃣ MY BET HISTORY ==========
+// ========== 7️⃣ MY BET HISTORY (WINNER INCLUDED) ==========
 async function myBetHistory(req, res) {
   try {
     const userId = req.user.id || req.user._id;
@@ -258,10 +258,22 @@ async function myBetHistory(req, res) {
       createdAt: { $gte: startOfDay, $lte: endOfDay }
     });
 
+    // Find unique rounds played by user
+    const roundNumbers = [...new Set(bets.map(bet => bet.round))];
+    // Get winners for all those rounds in one go
+    const winners = await Winner.find({ round: { $in: roundNumbers } })
+      .select('round choice -_id')
+      .lean();
+
+    // Map round to winner image
+    const roundToWinner = {};
+    winners.forEach(w => { roundToWinner[w.round] = w.choice; });
+
+    // Map bets by round
     const roundMap = {};
     bets.forEach(bet => {
       if (!roundMap[bet.round]) {
-        roundMap[bet.round] = { round: bet.round, bets: [], winAmount: 0 };
+        roundMap[bet.round] = { round: bet.round, bets: [], winAmount: 0, winner: roundToWinner[bet.round] || null };
       }
       roundMap[bet.round].bets.push({ choice: bet.choice, amount: bet.amount });
       if (bet.win && bet.payout > 0) {
@@ -274,6 +286,7 @@ async function myBetHistory(req, res) {
       .map(row => ({
         round: row.round,
         bets: row.bets,
+        winner: row.winner, // <-- WINNER FIELD!
         winAmount: row.winAmount
       }));
 
