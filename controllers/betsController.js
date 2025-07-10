@@ -303,6 +303,7 @@ async function getTodaySummary(req, res) {
     // Profit calculation
     const profit = totalBetsAmount - totalPayout;
 
+    
     res.json({
       totalBetsAmount,
       totalPayout,
