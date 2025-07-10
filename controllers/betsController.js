@@ -74,10 +74,7 @@ async function placeBet(req, res) {
     user.lastActive = new Date();
     await user.save();
 
-    // ⭐️ Calculate sessionId
-    const sessionId = Math.floor((round - 1) / 960) + 1;
-
-    const bet = new Bet({ user: userId, round, choice, amount, sessionId });
+    const bet = new Bet({ user: userId, round, choice, amount });
     await bet.save();
 
     global.io.emit('bet-placed', { choice, amount, round });
@@ -99,7 +96,8 @@ async function setManualWinner(req, res) {
       { choice, createdAt: new Date(), paid: false },
       { upsert: true, new: true }
     );
-    global.io.emit('winner-announced', { round, choice });
+    // Only update winner in DB, do NOT emit to show winner immediately on frontend!
+    global.io.emit('winner-announced', { round, choice }); // Frontend handles display timing
     return res.json({ message: 'Winner recorded (awaiting payout)', choice });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -154,7 +152,7 @@ async function distributePayouts(req, res) {
       return res.status(400).json({ message: 'Payout already done for this round' });
     }
 
-    // ⭐️ Distribute payouts and update win/payout in Bet
+    // Distribute payouts and update win/payout in Bet
     const allBets = await Bet.find({ round });
     const winningBets = allBets.filter(b => b.choice === choice);
 
@@ -169,7 +167,7 @@ async function distributePayouts(req, res) {
       await wb.save();
     }
 
-    // Optionally, mark all losing bets
+    // Mark all losing bets
     for (const lb of allBets) {
       if (lb.choice !== choice) {
         lb.payout = 0;
@@ -242,15 +240,23 @@ async function getLastWinsController(req, res) {
   }
 }
 
-// ========== 7️⃣ MY BET HISTORY (Only for logged-in user, only current session) ==========
+// ========== 7️⃣ MY BET HISTORY (Aaj ki bets only) ==========
 async function myBetHistory(req, res) {
   try {
     const userId = req.user.id || req.user._id;
-    // User ke latest sessionId wali bets dikhani hai
-    const lastBet = await Bet.findOne({ user: userId }).sort({ sessionId: -1, round: -1 });
-    const sessionId = lastBet ? lastBet.sessionId : 1;
 
-    const bets = await Bet.find({ user: userId, sessionId });
+    // Aaj ki date ka start & end (IST)
+    const now = new Date();
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    const nowIST = new Date(now.getTime() + IST_OFFSET);
+    const startOfDay = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate(), 0, 0, 0);
+    const endOfDay = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate(), 23, 59, 59);
+
+    // Sirf aaj ki bets
+    const bets = await Bet.find({
+      user: userId,
+      createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
 
     // Group by round, aggregate bets & winAmount
     const roundMap = {};
