@@ -74,7 +74,11 @@ async function placeBet(req, res) {
     user.lastActive = new Date();
     await user.save();
 
-    const bet = new Bet({ user: userId, round, choice, amount });
+    // ⭐️ SessionId calculation (production ready, launch tested!)
+    // 1 session = 960 rounds. SessionId always >= 1
+    const sessionId = Math.floor((round - 1) / 960) + 1;
+
+    const bet = new Bet({ user: userId, round, choice, amount, sessionId });
     await bet.save();
 
     global.io.emit('bet-placed', { choice, amount, round });
@@ -96,7 +100,7 @@ async function setManualWinner(req, res) {
       { choice, createdAt: new Date(), paid: false },
       { upsert: true, new: true }
     );
-    // Don't emit instantly, winner announcement always at timer 5!
+    // Winner announcement emit ab sirf timer 5 pe hoga!
     return res.json({ message: 'Winner recorded (awaiting payout)', choice });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -175,6 +179,7 @@ async function distributePayouts(req, res) {
 
     await Winner.findOneAndUpdate({ round }, { paid: true });
 
+    // Winner aur payout dono ab yahin emit honge (timer 0 pe)
     global.io.emit('winner-announced', { round, choice });
     global.io.emit('payouts-distributed', { round, choice });
 
@@ -219,7 +224,7 @@ async function announceWinner(req, res) {
     } else {
       choice = winDoc.choice;
     }
-    // Only at timer 5, emit to show winner (frontend will control UI)
+    // Winner frontend pe sirf timer 5 pe show hoga, abhi emit!
     global.io.emit('winner-announced', { round, choice });
     return res.json({ message: 'Winner announced', round, choice });
   } catch (err) {
@@ -303,7 +308,6 @@ async function getTodaySummary(req, res) {
     // Profit calculation
     const profit = totalBetsAmount - totalPayout;
 
-    
     res.json({
       totalBetsAmount,
       totalPayout,
