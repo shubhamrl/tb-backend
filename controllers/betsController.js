@@ -105,7 +105,7 @@ async function setManualWinner(req, res) {
   }
 }
 
-// ========== 4️⃣ DISTRIBUTE PAYOUTS ==========
+// ========== 4️⃣ DISTRIBUTE PAYOUTS (FIXED) ==========
 async function distributePayouts(req, res) {
   try {
     const { round } = req.body;
@@ -113,14 +113,22 @@ async function distributePayouts(req, res) {
       return res.status(400).json({ message: 'Invalid round' });
     }
 
-    let winDoc = await Winner.findOne({ round });
-    let choice;
+    // ========== ATOMIC UPDATE: Only 1 payout per round ==========
+    let winDoc = await Winner.findOneAndUpdate(
+      { round, paid: false },
+      { paid: true },
+      { new: true }
+    );
 
-    if (winDoc && winDoc.paid) {
+    // If already paid, stop here
+    if (!winDoc) {
       return res.status(400).json({ message: 'Payout already done for this round' });
     }
 
-    if (!winDoc) {
+    let choice = winDoc.choice;
+
+    // If winner not yet set, set winner
+    if (!choice) {
       const bets = await Bet.find({ round });
       if (!bets.length) {
         const IMAGE_LIST = [
@@ -139,18 +147,13 @@ async function distributePayouts(req, res) {
           .map(([name]) => name);
         choice = lowestChoices[Math.floor(Math.random() * lowestChoices.length)];
       }
-
-      winDoc = await Winner.create({ round, choice, createdAt: new Date(), paid: false });
+      await Winner.findOneAndUpdate({ round }, { choice }, { new: true });
       await addLastWin(choice, round);
     } else {
-      choice = winDoc.choice;
+      await addLastWin(choice, round);
     }
 
-    winDoc = await Winner.findOne({ round });
-    if (winDoc && winDoc.paid) {
-      return res.status(400).json({ message: 'Payout already done for this round' });
-    }
-
+    // Now payout!
     const allBets = await Bet.find({ round });
     const winningBets = allBets.filter(b => b.choice === choice);
 
@@ -172,8 +175,6 @@ async function distributePayouts(req, res) {
         await lb.save();
       }
     }
-
-    await Winner.findOneAndUpdate({ round }, { paid: true });
 
     global.io.emit('winner-announced', { round, choice });
     global.io.emit('payouts-distributed', { round, choice });
