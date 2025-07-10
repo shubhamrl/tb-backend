@@ -29,6 +29,7 @@ async function getCurrentRound(req, res) {
       const secondsPassed = Math.floor((nowIST - startOfDay) / 1000);
       round = Math.min(Math.floor(secondsPassed / 90) + 1, 960);
     }
+
     const userId = req.user.id || req.user._id;
     const bets = await Bet.find({ round });
 
@@ -74,8 +75,6 @@ async function placeBet(req, res) {
     user.lastActive = new Date();
     await user.save();
 
-    // ⭐️ SessionId calculation (production ready, launch tested!)
-    // 1 session = 960 rounds. SessionId always >= 1
     const sessionId = Math.floor((round - 1) / 960) + 1;
 
     const bet = new Bet({ user: userId, round, choice, amount, sessionId });
@@ -100,7 +99,6 @@ async function setManualWinner(req, res) {
       { choice, createdAt: new Date(), paid: false },
       { upsert: true, new: true }
     );
-    // Winner announcement emit ab sirf timer 5 pe hoga!
     return res.json({ message: 'Winner recorded (awaiting payout)', choice });
   } catch (err) {
     return res.status(500).json({ message: 'Server error' });
@@ -153,7 +151,6 @@ async function distributePayouts(req, res) {
       return res.status(400).json({ message: 'Payout already done for this round' });
     }
 
-    // Distribute payouts and update win/payout in Bet
     const allBets = await Bet.find({ round });
     const winningBets = allBets.filter(b => b.choice === choice);
 
@@ -168,7 +165,6 @@ async function distributePayouts(req, res) {
       await wb.save();
     }
 
-    // Mark all losing bets
     for (const lb of allBets) {
       if (lb.choice !== choice) {
         lb.payout = 0;
@@ -179,7 +175,6 @@ async function distributePayouts(req, res) {
 
     await Winner.findOneAndUpdate({ round }, { paid: true });
 
-    // Winner aur payout dono ab yahin emit honge (timer 0 pe)
     global.io.emit('winner-announced', { round, choice });
     global.io.emit('payouts-distributed', { round, choice });
 
@@ -189,18 +184,20 @@ async function distributePayouts(req, res) {
   }
 }
 
-// ========== 5️⃣ WINNER ANNOUNCE (NO PAYOUT) ==========
+// ========== 5️⃣ ANNOUNCE WINNER (TIMER = 5) ==========
 async function announceWinner(req, res) {
   try {
     const { round } = req.body;
     if (!round || typeof round !== 'number' || round < 1 || round > 960) {
       return res.status(400).json({ message: 'Invalid round' });
     }
+
     let winDoc = await Winner.findOne({ round });
     let choice;
 
     if (!winDoc) {
       const bets = await Bet.find({ round });
+
       if (!bets.length) {
         const IMAGE_LIST = [
           'umbrella', 'football', 'sun', 'diya', 'cow', 'bucket',
@@ -220,11 +217,13 @@ async function announceWinner(req, res) {
       }
 
       winDoc = await Winner.create({ round, choice, createdAt: new Date(), paid: false });
-      await addLastWin(choice, round);
     } else {
       choice = winDoc.choice;
     }
-    // Winner frontend pe sirf timer 5 pe show hoga, abhi emit!
+
+    // ✅ This ensures last win is always updated
+    await addLastWin(choice, round);
+
     global.io.emit('winner-announced', { round, choice });
     return res.json({ message: 'Winner announced', round, choice });
   } catch (err) {
@@ -242,25 +241,22 @@ async function getLastWinsController(req, res) {
   }
 }
 
-// ========== 7️⃣ MY BET HISTORY (Aaj ki bets only) ==========
+// ========== 7️⃣ MY BET HISTORY ==========
 async function myBetHistory(req, res) {
   try {
     const userId = req.user.id || req.user._id;
 
-    // Aaj ki date ka start & end (IST)
     const now = new Date();
     const IST_OFFSET = 5.5 * 60 * 60 * 1000;
     const nowIST = new Date(now.getTime() + IST_OFFSET);
     const startOfDay = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate(), 0, 0, 0);
     const endOfDay = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate(), 23, 59, 59);
 
-    // Sirf aaj ki bets
     const bets = await Bet.find({
       user: userId,
       createdAt: { $gte: startOfDay, $lte: endOfDay }
     });
 
-    // Group by round, aggregate bets & winAmount
     const roundMap = {};
     bets.forEach(bet => {
       if (!roundMap[bet.round]) {
@@ -272,7 +268,6 @@ async function myBetHistory(req, res) {
       }
     });
 
-    // Prepare array sorted by round desc
     const history = Object.values(roundMap)
       .sort((a, b) => b.round - a.round)
       .map(row => ({
@@ -287,7 +282,7 @@ async function myBetHistory(req, res) {
   }
 }
 
-// ========== 8️⃣ GET TODAY'S PAYOUT/PROFIT SUMMARY ==========
+// ========== 8️⃣ TODAY'S SUMMARY ==========
 async function getTodaySummary(req, res) {
   try {
     const now = new Date();
@@ -296,23 +291,12 @@ async function getTodaySummary(req, res) {
     const startOfDay = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate(), 0, 0, 0);
     const endOfDay = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate(), 23, 59, 59);
 
-    // All bets placed today
     const bets = await Bet.find({ createdAt: { $gte: startOfDay, $lte: endOfDay } });
-
-    // Total bet amount (all bets, all users)
     const totalBetsAmount = bets.reduce((sum, bet) => sum + (bet.amount || 0), 0);
-
-    // Total payout (sum of payout field for win:true bets)
     const totalPayout = bets.reduce((sum, bet) => sum + (bet.payout || 0), 0);
-
-    // Profit calculation
     const profit = totalBetsAmount - totalPayout;
 
-    res.json({
-      totalBetsAmount,
-      totalPayout,
-      profit
-    });
+    res.json({ totalBetsAmount, totalPayout, profit });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
