@@ -8,7 +8,8 @@ const {
   distributePayouts,
   getLastWins,
   announceWinner,
-  myBetHistory        // <-- Just add here, alag se neeche import mat karo
+  myBetHistory,
+  getTodaySummary
 } = require('../controllers/betsController');
 
 router.get('/my-bet-history', auth, myBetHistory);
@@ -88,5 +89,8 @@ router.post('/announce-winner', auth, announceWinner);
 
 // 7️⃣ Last 10 wins
 router.get('/last-wins', getLastWins);
+
+// 8️⃣ Today's payout/profit summary (admin can use this)
+router.get('/today-summary', getTodaySummary);
 
 module.exports = router;
