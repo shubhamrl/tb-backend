@@ -5,6 +5,7 @@ const {
   getCurrentRound,
   placeBet,
   setManualWinner,
+  lockWinner, // ⭐️ Yeh import karo!
   distributePayouts,
   getLastWins,
   announceWinner,
@@ -81,16 +82,19 @@ router.post('/place-bet', auth, placeBet);
 // 4️⃣ Set manual winner (admin)
 router.post('/set-winner', auth, setManualWinner);
 
-// 5️⃣ Distribute payouts (auto/manual at round end)
+// ⭐️ ⭐️ NEW 5️⃣ Lock Winner (timer 10 pe)
+router.post('/lock-winner', auth, lockWinner);
+
+// 6️⃣ Distribute payouts (auto/manual at round end)
 router.post('/distribute-payouts', auth, distributePayouts);
 
-// 6️⃣ Announce winner early (timer 5 pe, payout nahi)
+// 7️⃣ Announce winner early (timer 5 pe, payout nahi)
 router.post('/announce-winner', auth, announceWinner);
 
-// 7️⃣ Last 10 wins
+// 8️⃣ Last 10 wins
 router.get('/last-wins', getLastWins);
 
-// 8️⃣ Today's payout/profit summary (admin can use this)
+// 9️⃣ Today's payout/profit summary (admin can use this)
 router.get('/today-summary', getTodaySummary);
 
 module.exports = router;
