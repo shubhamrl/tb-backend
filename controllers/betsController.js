@@ -105,6 +105,50 @@ async function setManualWinner(req, res) {
   }
 }
 
+// ========== 3.5️⃣ LOCK WINNER (TIMER 10) ==========
+async function lockWinner(req, res) {
+  try {
+    const { round } = req.body;
+    if (!round || typeof round !== 'number' || round < 1 || round > 960) {
+      return res.status(400).json({ message: 'Invalid round' });
+    }
+    let winDoc = await Winner.findOne({ round });
+    if (winDoc && winDoc.choice) {
+      // Already locked by admin
+      return res.json({ alreadyLocked: true, choice: winDoc.choice });
+    }
+    // Lock with auto logic
+    const bets = await Bet.find({ round });
+    let choice;
+    if (!bets.length) {
+      const IMAGE_LIST = [
+        'umbrella', 'football', 'sun', 'diya', 'cow', 'bucket',
+        'kite', 'spinningTop', 'rose', 'butterfly', 'pigeon', 'rabbit'
+      ];
+      choice = IMAGE_LIST[Math.floor(Math.random() * IMAGE_LIST.length)];
+    } else {
+      const totals = {};
+      bets.forEach(b => {
+        totals[b.choice] = (totals[b.choice] || 0) + b.amount;
+      });
+      let minAmount = Math.min(...Object.values(totals));
+      const lowestChoices = Object.entries(totals)
+        .filter(([_, amt]) => amt === minAmount)
+        .map(([name]) => name);
+      choice = lowestChoices[Math.floor(Math.random() * lowestChoices.length)];
+    }
+    // Save to DB (upsert)
+    await Winner.findOneAndUpdate(
+      { round },
+      { choice, createdAt: new Date(), paid: false },
+      { upsert: true, new: true }
+    );
+    return res.json({ locked: true, choice });
+  } catch (err) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+}
+
 // ========== 4️⃣ DISTRIBUTE PAYOUTS ==========
 async function distributePayouts(req, res) {
   try {
@@ -127,8 +171,9 @@ async function distributePayouts(req, res) {
 
     let choice = winDoc.choice;
 
-    // If winner not yet set, set winner
+    // If winner not yet set (should never happen now), set winner
     if (!choice) {
+      // This should rarely hit if lockWinner is used properly!
       const bets = await Bet.find({ round });
       if (!bets.length) {
         const IMAGE_LIST = [
@@ -193,12 +238,13 @@ async function announceWinner(req, res) {
       return res.status(400).json({ message: 'Invalid round' });
     }
 
+    // Fetch winner from DB (should be set by lockWinner)
     let winDoc = await Winner.findOne({ round });
-    let choice;
+    let choice = winDoc ? winDoc.choice : null;
 
-    if (!winDoc) {
+    // Still missing? (extreme rare) fallback logic:
+    if (!choice) {
       const bets = await Bet.find({ round });
-
       if (!bets.length) {
         const IMAGE_LIST = [
           'umbrella', 'football', 'sun', 'diya', 'cow', 'bucket',
@@ -218,8 +264,6 @@ async function announceWinner(req, res) {
       }
 
       winDoc = await Winner.create({ round, choice, createdAt: new Date(), paid: false });
-    } else {
-      choice = winDoc.choice;
     }
 
     // ✅ This ensures last win is always updated
@@ -320,6 +364,7 @@ module.exports = {
   getCurrentRound,
   placeBet,
   setManualWinner,
+  lockWinner, // <--- ⭐⭐ YEH ADD KARNA ROUTE ME
   distributePayouts,
   getLastWins: getLastWinsController,
   announceWinner,
