@@ -149,7 +149,7 @@ async function lockWinner(req, res) {
   }
 }
 
-// ========== 4️⃣ DISTRIBUTE PAYOUTS ==========
+// ========== 4️⃣ DISTRIBUTE PAYOUTS (FIXED: Total payout ek baar) ==========
 async function distributePayouts(req, res) {
   try {
     const { round } = req.body;
@@ -164,7 +164,6 @@ async function distributePayouts(req, res) {
       { new: true }
     );
 
-    // If already paid, stop here
     if (!winDoc) {
       return res.status(400).json({ message: 'Payout already done for this round' });
     }
@@ -173,7 +172,6 @@ async function distributePayouts(req, res) {
 
     // If winner not yet set (should never happen now), set winner
     if (!choice) {
-      // This should rarely hit if lockWinner is used properly!
       const bets = await Bet.find({ round });
       if (!bets.length) {
         const IMAGE_LIST = [
@@ -198,21 +196,33 @@ async function distributePayouts(req, res) {
       await addLastWin(choice, round);
     }
 
-    // Now payout!
+    // ------- 🟢🟢 Payout logic: Group by user, total bet per user (on winner image) 🟢🟢 -------
     const allBets = await Bet.find({ round });
     const winningBets = allBets.filter(b => b.choice === choice);
 
-    for (const wb of winningBets) {
-      const user = await User.findById(wb.user);
-      if (user) {
-        user.balance += wb.amount * 10;
-        await user.save();
-      }
-      wb.payout = wb.amount * 10;
-      wb.win = true;
-      await wb.save();
+    // 1. Group bets by userId, sum total bet per user on winner choice
+    const userTotalBets = {};
+    for (const bet of winningBets) {
+      const uid = String(bet.user);
+      if (!userTotalBets[uid]) userTotalBets[uid] = 0;
+      userTotalBets[uid] += bet.amount;
     }
 
+    // 2. Give payout once per user (total*10)
+    for (const userId of Object.keys(userTotalBets)) {
+      const totalAmount = userTotalBets[userId];
+      const payout = totalAmount * 10;
+      await User.findByIdAndUpdate(userId, { $inc: { balance: payout } });
+    }
+
+    // 3. Mark each winning bet as win:true, payout:0 (optional: can keep payout per bet, but total credited above)
+    for (const bet of winningBets) {
+      bet.payout = 0; // payout shown 0 per bet, or you can set bet.amount*10 for 1st bet, rest 0
+      bet.win = true;
+      await bet.save();
+    }
+
+    // 4. Losing bets
     for (const lb of allBets) {
       if (lb.choice !== choice) {
         lb.payout = 0;
@@ -238,11 +248,9 @@ async function announceWinner(req, res) {
       return res.status(400).json({ message: 'Invalid round' });
     }
 
-    // Fetch winner from DB (should be set by lockWinner)
     let winDoc = await Winner.findOne({ round });
     let choice = winDoc ? winDoc.choice : null;
 
-    // Still missing? (extreme rare) fallback logic:
     if (!choice) {
       const bets = await Bet.find({ round });
       if (!bets.length) {
@@ -266,7 +274,6 @@ async function announceWinner(req, res) {
       winDoc = await Winner.create({ round, choice, createdAt: new Date(), paid: false });
     }
 
-    // ✅ This ensures last win is always updated
     await addLastWin(choice, round);
 
     global.io.emit('winner-announced', { round, choice });
@@ -302,18 +309,14 @@ async function myBetHistory(req, res) {
       createdAt: { $gte: startOfDay, $lte: endOfDay }
     });
 
-    // Find unique rounds played by user
     const roundNumbers = [...new Set(bets.map(bet => bet.round))];
-    // Get winners for all those rounds in one go
     const winners = await Winner.find({ round: { $in: roundNumbers } })
       .select('round choice -_id')
       .lean();
 
-    // Map round to winner image
     const roundToWinner = {};
     winners.forEach(w => { roundToWinner[w.round] = w.choice; });
 
-    // Map bets by round
     const roundMap = {};
     bets.forEach(bet => {
       if (!roundMap[bet.round]) {
@@ -330,7 +333,7 @@ async function myBetHistory(req, res) {
       .map(row => ({
         round: row.round,
         bets: row.bets,
-        winner: row.winner, // <-- WINNER FIELD!
+        winner: row.winner,
         winAmount: row.winAmount
       }));
 
@@ -364,8 +367,8 @@ module.exports = {
   getCurrentRound,
   placeBet,
   setManualWinner,
-  lockWinner, // <--- ⭐⭐ YEH ADD KARNA ROUTE ME
-  distributePayouts,
+  lockWinner,
+  distributePayouts, // <-- FIXED!
   getLastWins: getLastWinsController,
   announceWinner,
   myBetHistory,
