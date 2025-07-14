@@ -10,51 +10,51 @@ const { Server } = require('socket.io');
 
 // Import all routes
 const adminRoutes      = require('./routes/admin');
-// const signupRoute      = require('./routes/signup');
-// const loginRoute       = require('./routes/login');
 const authRoutes       = require('./routes/auth');
 const userRoutes       = require('./routes/users');
 const betsRoutes       = require('./routes/bets');
+const winnerRoutes     = require('./routes/winner');           // ⭐️ ADD THIS LINE
 const depositRoutes    = require('./routes/depositRoutes');
 const withdrawalRoutes = require('./routes/withdrawalRoutes');
-const settingsRoutes = require('./routes/settings');
-const spinRoutes = require('./routes/spin');
+const settingsRoutes   = require('./routes/settings');
+const spinRoutes       = require('./routes/spin');
 
 const app = express();
 const server = http.createServer(app);
 
-// Initialize Socket.io with proper CORS so कि React front-end (localhost:3000) जुड़ सके
+// Initialize Socket.io with proper CORS for React frontend
 const io = new Server(server, {
   cors: {
-    origin: process.env.ALLOWED_ORIGINS.split(','), // e.g. ["http://localhost:3000"]
+    origin: process.env.ALLOWED_ORIGINS.split(','), // ["http://localhost:3000"]
     methods: ["GET", "POST"],
     credentials: true
   }
 });
 
-// Make io globally available, ताकि controllers emit कर सकें
+// Make io globally available for emit in controllers
 global.io = io;
 
 // Middlewares
 app.use(helmet());
 app.use(express.json());
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGINS.split(','), // React Dev Server
+  origin: process.env.ALLOWED_ORIGINS.split(','),
   credentials: true
 }));
 // app.use(rateLimit({ windowMs: 60 * 1000, max: 100 }));
 
-// Mount routes
+// Mount all routes (unchanged)
 // app.use('/api/auth',       signupRoute);
 // app.use('/api/auth',       loginRoute);
-app.use('/api/auth',       authRoutes);
-app.use('/api/users',      userRoutes);
-app.use('/api/bets',       betsRoutes);
-app.use('/api/deposits',   depositRoutes);
+app.use('/api/auth',        authRoutes);
+app.use('/api/users',       userRoutes);
+app.use('/api/bets',        betsRoutes);
+app.use('/api/winner',      winnerRoutes);          // ⭐️ MOUNT WINNER ROUTES
+app.use('/api/deposits',    depositRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
-app.use('/api/admin',      adminRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/spin', spinRoutes);
+app.use('/api/admin',       adminRoutes);
+app.use('/api/settings',    settingsRoutes);
+app.use('/api/spin',        spinRoutes);
 
 // Connect to MongoDB
 mongoose
