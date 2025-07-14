@@ -4,13 +4,19 @@ const auth = require('../middlewares/authMiddleware');
 const {
   getCurrentRound,
   placeBet,
-  myBetHistory
+  myBetHistory,
+  lockWinner,
+  announceWinner,
+  distributePayouts,
+  setManualWinner,
+  getLastWins,
+  getTodaySummary
 } = require('../controllers/betsController');
 
 // 1️⃣ Current round details
 router.get('/current-round', getCurrentRound);
 
-// 2️⃣ LIVE STATE ROUTE (for game frontend, required)
+// 2️⃣ LIVE STATE ROUTE (for game frontend)
 router.get('/live-state', auth, async (req, res) => {
   try {
     const now = new Date();
@@ -71,7 +77,25 @@ router.get('/live-state', auth, async (req, res) => {
 // 3️⃣ Place bet
 router.post('/place-bet', auth, placeBet);
 
-// 4️⃣ My bet history (today's)
+// 4️⃣ Set manual winner (admin panel)
+router.post('/set-winner', auth, setManualWinner);
+
+// 5️⃣ Lock winner (timer 10 pe, auto ya admin)
+router.post('/lock-winner', auth, lockWinner);
+
+// 6️⃣ Announce winner (timer 5 pe, payout nahi)
+router.post('/announce-winner', auth, announceWinner);
+
+// 7️⃣ Distribute payouts (auto/manual at round end)
+router.post('/distribute-payouts', auth, distributePayouts);
+
+// 8️⃣ Last 10 wins
+router.get('/last-wins', getLastWins);
+
+// 9️⃣ My bet history (today's)
 router.get('/my-bet-history', auth, myBetHistory);
+
+// 🔟 Today's summary (admin)
+router.get('/today-summary', getTodaySummary);
 
 module.exports = router;
