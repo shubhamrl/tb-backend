@@ -11,7 +11,7 @@ const {
   setManualWinner,
   getLastWins,
   getTodaySummary
-} = require('../controllers/betsController'); // Ya winnerController bhi ho sakta hai!
+} = require('../controllers/winnerController'); // Ya winnerController bhi ho sakta hai!
 
 // 1️⃣ Current round details
 router.get('/current-round', getCurrentRound);
