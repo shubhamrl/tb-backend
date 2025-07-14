@@ -1,17 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middlewares/authMiddleware');
+
+// 🟢 Import from betsController
 const {
   getCurrentRound,
   placeBet,
   myBetHistory,
+  getRoundBetsSummary,
+} = require('../controllers/betsController');
+
+// 🟢 Import from winnerController
+const {
+  setManualWinner,
   lockWinner,
   announceWinner,
   distributePayouts,
-  setManualWinner,
   getLastWins,
-  getTodaySummary
-} = require('../controllers/winnerController'); // Ya winnerController bhi ho sakta hai!
+} = require('../controllers/winnerController');
 
 // 1️⃣ Current round details
 router.get('/current-round', getCurrentRound);
@@ -95,7 +101,7 @@ router.get('/last-wins', getLastWins);
 // 9️⃣ My bet history (today's)
 router.get('/my-bet-history', auth, myBetHistory);
 
-// 🔟 Today's summary (admin)
-router.get('/today-summary', getTodaySummary);
+// 🔟 Round-wise bet summary (admin panel manual winner me show karne ke liye)
+router.get('/round-bets-summary', auth, getRoundBetsSummary);
 
 module.exports = router;
