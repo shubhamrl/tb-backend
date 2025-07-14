@@ -44,6 +44,7 @@ async function setManualWinner(req, res) {
 async function lockWinner(req, res) {
   try {
     const { round } = req.body;
+    console.log('[LOCK_WINNER]', { round, time: Date.now() });
     if (!round || typeof round !== 'number' || round < 1 || round > 960) {
       return res.status(400).json({ message: 'Invalid round' });
     }
@@ -89,6 +90,7 @@ async function lockWinner(req, res) {
 async function announceWinner(req, res) {
   try {
     const { round } = req.body;
+    
     if (!round || typeof round !== 'number' || round < 1 || round > 960) {
       return res.status(400).json({ message: 'Invalid round' });
     }
