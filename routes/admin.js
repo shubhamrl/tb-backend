@@ -1,34 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
-const mongoose = require('mongoose');
-const User = require('../models/User');
-const Bet = require('../models/Bet');
-const Winner = require('../models/Winner');
 
-// All your existing admin routes below...
+// USERS LIST, TOTAL, ACTIVE, SEARCH
+router.get('/users', adminController.getUsers);
 
-// ====== USERS LIST/SEARCH ===========
-router.get('/users', async (req, res) => {
-  // ...tumhara pura code same as before...
-});
+// UPDATE USER BALANCE
+router.put('/users/:id/balance', adminController.updateUserBalance);
 
-// ====== UPDATE USER BALANCE =========
-router.put('/users/:id/balance', async (req, res) => {
-  // ...tumhara pura code same as before...
-});
+// REWARD REFERRAL
+router.post('/users/:id/reward-referral', adminController.rewardReferral);
 
-// ====== REWARD REFERRAL ============
-router.post('/users/:id/reward-referral', async (req, res) => {
-  // ...tumhara pura code same as before...
-});
+// TODAY ROUNDS SUMMARY (ROUND WISE)
+router.get('/today-rounds-summary', adminController.todayRoundsSummary);
 
-// ====== TODAY ROUNDS SUMMARY ========
-router.get('/today-rounds-summary', async (req, res) => {
-  // ...tumhara pura code same as before...
-});
-
-// ====== ADD THIS: TODAY OVERALL SUMMARY ========
+// TODAY OVERALL SUMMARY (TOTAL PROFIT/LOSS)
 router.get('/summary', adminController.getTodaySummary);
 
 module.exports = router;
