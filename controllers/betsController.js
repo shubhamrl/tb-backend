@@ -40,6 +40,7 @@ async function placeBet(req, res) {
   try {
     const userId = req.user.id || req.user._id;
     const { choice, amount, round } = req.body;
+    console.log('[BET]', { userId, round, choice, amount });
     if (!round || typeof round !== 'number' || round < 1 || round > 960) {
       return res.status(400).json({ message: 'Invalid round' });
     }
