@@ -56,6 +56,7 @@ async function getCurrentRound(req, res) {
 }
 
 // ========== 2️⃣ PLACE A BET ==========
+// FIXED: Atomic balance update using $inc and $set
 async function placeBet(req, res) {
   try {
     const userId = req.user.id || req.user._id;
@@ -64,19 +65,21 @@ async function placeBet(req, res) {
     if (!round || typeof round !== 'number' || round < 1 || round > 960) {
       return res.status(400).json({ message: 'Invalid round' });
     }
-
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    if (amount <= 0 || user.balance < amount) {
-      return res.status(400).json({ message: 'Invalid amount or insufficient balance' });
+    if (amount <= 0) {
+      return res.status(400).json({ message: 'Invalid bet amount' });
     }
 
-    user.balance -= amount;
-    user.lastActive = new Date();
-    await user.save();
+    // ATOMIC BALANCE UPDATE — NO RACE CONDITION!
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: userId, balance: { $gte: amount } },
+      { $inc: { balance: -amount }, $set: { lastActive: new Date() } },
+      { new: true }
+    );
+    if (!updatedUser) {
+      return res.status(400).json({ message: 'Insufficient balance' });
+    }
 
     const sessionId = Math.floor((round - 1) / 960) + 1;
-
     const bet = new Bet({ user: userId, round, choice, amount, sessionId });
     await bet.save();
 
