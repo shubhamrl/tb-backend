@@ -6,6 +6,7 @@ const User = require('../models/User');
 async function getCurrentRound(req, res) {
   try {
     let round = Number(req.query.round);
+    console.log('[GET_ROUND]', { round, userId });
     if (!round) {
       const now = new Date();
       const IST_OFFSET = 5.5 * 60 * 60 * 1000;
