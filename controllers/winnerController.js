@@ -28,6 +28,7 @@ async function setManualWinner(req, res) {
     if (!round || typeof round !== 'number' || round < 1 || round > 960) {
       return res.status(400).json({ message: 'Invalid round' });
     }
+    // Always allow admin to override winner for round
     await Winner.findOneAndUpdate(
       { round },
       { choice, createdAt: new Date(), paid: false },
@@ -46,30 +47,33 @@ async function lockWinner(req, res) {
     if (!round || typeof round !== 'number' || round < 1 || round > 960) {
       return res.status(400).json({ message: 'Invalid round' });
     }
+    // (1) Admin already set winner? Just return.
     let winDoc = await Winner.findOne({ round });
     if (winDoc && winDoc.choice) {
       return res.json({ alreadyLocked: true, choice: winDoc.choice });
     }
-    // Admin hasn't set, so auto logic
+
+    // (2) Nahi set kiya, toh auto logic:
     const bets = await Bet.find({ round });
     let choice;
     if (!bets.length) {
+      // No bets at all, random
       const IMAGE_LIST = [
         'umbrella', 'football', 'sun', 'diya', 'cow', 'bucket',
         'kite', 'spinningTop', 'rose', 'butterfly', 'pigeon', 'rabbit'
       ];
       choice = IMAGE_LIST[Math.floor(Math.random() * IMAGE_LIST.length)];
     } else {
+      // Lowest total bet wala
       const totals = {};
-      bets.forEach(b => {
-        totals[b.choice] = (totals[b.choice] || 0) + b.amount;
-      });
+      bets.forEach(b => { totals[b.choice] = (totals[b.choice] || 0) + b.amount; });
       let minAmount = Math.min(...Object.values(totals));
       const lowestChoices = Object.entries(totals)
         .filter(([_, amt]) => amt === minAmount)
         .map(([name]) => name);
       choice = lowestChoices[Math.floor(Math.random() * lowestChoices.length)];
     }
+    // Save winner
     await Winner.findOneAndUpdate(
       { round },
       { choice, createdAt: new Date(), paid: false },
@@ -88,29 +92,37 @@ async function announceWinner(req, res) {
     if (!round || typeof round !== 'number' || round < 1 || round > 960) {
       return res.status(400).json({ message: 'Invalid round' });
     }
+    // (1) Already set? Use existing!
     let winDoc = await Winner.findOne({ round });
     let choice = winDoc ? winDoc.choice : null;
-    if (!choice) {
-      const bets = await Bet.find({ round });
-      if (!bets.length) {
-        const IMAGE_LIST = [
-          'umbrella', 'football', 'sun', 'diya', 'cow', 'bucket',
-          'kite', 'spinningTop', 'rose', 'butterfly', 'pigeon', 'rabbit'
-        ];
-        choice = IMAGE_LIST[Math.floor(Math.random() * IMAGE_LIST.length)];
-      } else {
-        const totals = {};
-        bets.forEach(b => {
-          totals[b.choice] = (totals[b.choice] || 0) + b.amount;
-        });
-        let minAmount = Math.min(...Object.values(totals));
-        const lowestChoices = Object.entries(totals)
-          .filter(([_, amt]) => amt === minAmount)
-          .map(([name]) => name);
-        choice = lowestChoices[Math.floor(Math.random() * lowestChoices.length)];
-      }
-      winDoc = await Winner.create({ round, choice, createdAt: new Date(), paid: false });
+    if (choice) {
+      await addLastWin(choice, round);
+      global.io.emit('winner-announced', { round, choice });
+      return res.json({ message: 'Winner announced', round, choice });
     }
+
+    // (2) Auto logic as per above
+    const bets = await Bet.find({ round });
+    if (!bets.length) {
+      const IMAGE_LIST = [
+        'umbrella', 'football', 'sun', 'diya', 'cow', 'bucket',
+        'kite', 'spinningTop', 'rose', 'butterfly', 'pigeon', 'rabbit'
+      ];
+      choice = IMAGE_LIST[Math.floor(Math.random() * IMAGE_LIST.length)];
+    } else {
+      const totals = {};
+      bets.forEach(b => { totals[b.choice] = (totals[b.choice] || 0) + b.amount; });
+      let minAmount = Math.min(...Object.values(totals));
+      const lowestChoices = Object.entries(totals)
+        .filter(([_, amt]) => amt === minAmount)
+        .map(([name]) => name);
+      choice = lowestChoices[Math.floor(Math.random() * lowestChoices.length)];
+    }
+    await Winner.findOneAndUpdate(
+      { round },
+      { choice, createdAt: new Date(), paid: false },
+      { upsert: true, new: true }
+    );
     await addLastWin(choice, round);
     global.io.emit('winner-announced', { round, choice });
     return res.json({ message: 'Winner announced', round, choice });
@@ -136,7 +148,7 @@ async function distributePayouts(req, res) {
     }
     let choice = winDoc.choice;
     if (!choice) {
-      // This should not happen, but safe fallback
+      // Fallback: winner not set? Do logic now
       const bets = await Bet.find({ round });
       if (!bets.length) {
         const IMAGE_LIST = [
@@ -146,9 +158,7 @@ async function distributePayouts(req, res) {
         choice = IMAGE_LIST[Math.floor(Math.random() * IMAGE_LIST.length)];
       } else {
         const totals = {};
-        bets.forEach(b => {
-          totals[b.choice] = (totals[b.choice] || 0) + b.amount;
-        });
+        bets.forEach(b => { totals[b.choice] = (totals[b.choice] || 0) + b.amount; });
         let minAmount = Math.min(...Object.values(totals));
         const lowestChoices = Object.entries(totals)
           .filter(([_, amt]) => amt === minAmount)
@@ -160,7 +170,7 @@ async function distributePayouts(req, res) {
     } else {
       await addLastWin(choice, round);
     }
-    // Payout logic
+    // Payout logic (as before)
     const allBets = await Bet.find({ round });
     const winningBets = allBets.filter(b => b.choice === choice);
     const userTotalBets = {};
