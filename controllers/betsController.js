@@ -13,7 +13,7 @@ async function getCurrentRound(req, res) {
       const nowIST = new Date(now.getTime() + IST_OFFSET);
       const startOfDay = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate(), 0, 0, 0);
       const secondsPassed = Math.floor((nowIST - startOfDay) / 1000);
-      round = Math.min(Math.floor(secondsPassed / 90) + 1, 960);
+      round = Math.min(Math.floor(secondsPassed / 40) + 1, 2160);
     }
     const userId = req.user?.id || req.user?._id;
     const bets = await Bet.find({ round });
@@ -42,7 +42,7 @@ async function placeBet(req, res) {
     const userId = req.user.id || req.user._id;
     const { choice, amount, round } = req.body;
     console.log('[BET]', { userId, round, choice, amount });
-    if (!round || typeof round !== 'number' || round < 1 || round > 960) {
+    if (!round || typeof round !== 'number' || round < 1 || round > 2160) {
       return res.status(400).json({ message: 'Invalid round' });
     }
     if (amount <= 0) {
@@ -56,7 +56,7 @@ async function placeBet(req, res) {
     if (!updatedUser) {
       return res.status(400).json({ message: 'Insufficient balance' });
     }
-    const sessionId = Math.floor((round - 1) / 960) + 1;
+    const sessionId = Math.floor((round - 1) / 2160) + 1;
     const bet = new Bet({ user: userId, round, choice, amount, sessionId });
     await bet.save();
     global.io.emit('bet-placed', { choice, amount, round });
