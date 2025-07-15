@@ -25,7 +25,7 @@ async function getLastWinsController(req, res) {
 async function setManualWinner(req, res) {
   try {
     const { choice, round } = req.body;
-    if (!round || typeof round !== 'number' || round < 1 || round > 960) {
+    if (!round || typeof round !== 'number' || round < 1 || round > 2160) {
       return res.status(400).json({ message: 'Invalid round' });
     }
     // Always allow admin to override winner for round
@@ -45,7 +45,7 @@ async function lockWinner(req, res) {
   try {
     const { round } = req.body;
     console.log('[LOCK_WINNER]', { round, time: Date.now() });
-    if (!round || typeof round !== 'number' || round < 1 || round > 960) {
+    if (!round || typeof round !== 'number' || round < 1 || round > 2160) {
       return res.status(400).json({ message: 'Invalid round' });
     }
     // (1) Admin already set winner? Just return.
@@ -91,7 +91,7 @@ async function announceWinner(req, res) {
   try {
     const { round } = req.body;
     
-    if (!round || typeof round !== 'number' || round < 1 || round > 960) {
+    if (!round || typeof round !== 'number' || round < 1 || round > 2160) {
       return res.status(400).json({ message: 'Invalid round' });
     }
     // (1) Already set? Use existing!
@@ -137,7 +137,7 @@ async function announceWinner(req, res) {
 async function distributePayouts(req, res) {
   try {
     const { round } = req.body;
-    if (!round || typeof round !== 'number' || round < 1 || round > 960) {
+    if (!round || typeof round !== 'number' || round < 1 || round > 2160) {
       return res.status(400).json({ message: 'Invalid round' });
     }
     let winDoc = await Winner.findOneAndUpdate(
