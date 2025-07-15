@@ -88,7 +88,9 @@ async function todayRoundsSummary(req, res) {
   try {
     const now = new Date();
     const IST_OFFSET = 5.5 * 60 * 60 * 1000;
-    const nowIST = new Date(now.getTime() + IST_OFFSET);
+    const nowIST = new Date(
+      now.getTime() + IST_OFFSET
+    );
     const startOfDay = new Date(
       nowIST.getFullYear(),
       nowIST.getMonth(),
@@ -96,7 +98,7 @@ async function todayRoundsSummary(req, res) {
       0, 0, 0
     );
     const secondsPassed = Math.floor((nowIST - startOfDay) / 1000);
-    const currentRoundNumber = Math.min(Math.floor(secondsPassed / 90) + 1, 960);
+    const currentRoundNumber = Math.min(Math.floor(secondsPassed / 40) + 1, 2160);
 
     const bets = await Bet.find({
       createdAt: { $gte: startOfDay, $lte: nowIST }
