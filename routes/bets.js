@@ -30,9 +30,9 @@ router.get('/live-state', auth, async (req, res) => {
     const nowIST = new Date(now.getTime() + IST_OFFSET);
     const startOfDay = new Date(nowIST.getFullYear(), nowIST.getMonth(), nowIST.getDate(), 0, 0, 0);
     const secondsPassed = Math.floor((nowIST - startOfDay) / 1000);
-    const round = Math.min(Math.floor(secondsPassed / 90) + 1, 960);
-    const currentRoundStart = startOfDay.getTime() + ((round - 1) * 90 * 1000);
-    const currentRoundEnd = currentRoundStart + (90 * 1000);
+    const round = Math.min(Math.floor(secondsPassed / 40) + 1, 2160);
+    const currentRoundStart = startOfDay.getTime() + ((round - 1) * 40 * 1000);
+    const currentRoundEnd = currentRoundStart + (40 * 1000);
     const timer = Math.max(0, Math.floor((currentRoundEnd - nowIST.getTime()) / 1000));
 
     const Bet = require('../models/Bet');
